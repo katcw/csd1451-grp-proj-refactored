@@ -40,6 +40,7 @@
 #include "customer.hpp"
 #include "debug.hpp"
 #include "entity.hpp"
+#include "merchant.hpp"
 
 namespace
 {
@@ -188,7 +189,13 @@ namespace
     Level1End endState = Level1End::PLAYING;
     float     fadeAlpha = 0.f;
 
-    constexpr int GOLD_WIN_TARGET = 300;  // [TUNE] gold required to win
+    constexpr int GOLD_WIN_TARGET = 40;  // [TUNE] gold required to win
+
+    //========================================================================
+    // Merchant post-win state
+    //========================================================================
+    Merchant merchant;
+    bool merchantStarted = false;
 
     //========================================================================
     // Collision extents
@@ -251,6 +258,7 @@ void Level1_Load()
     plantSystem::PlantSystem_Load(plantState);
     ParticleSystem::Load(particleState);
     TableSystem::TableSystem_Load(tableState);
+    MerchantSystem::Load();
 
     // Entity load
     Entity::Load();
@@ -348,6 +356,11 @@ void Level1_Initialise()
     // Win/lose state reset
     endState = Level1End::PLAYING;
     fadeAlpha = 0.f;
+
+    // Merchant reset
+    MerchantSystem::Init(merchant);
+    merchantStarted = false;
+
 }
 
 void Level1_Update()
@@ -444,21 +457,53 @@ void Level1_Update()
             //------------------------------------------------------------------
             // Check for game end: time ran out
             //------------------------------------------------------------------
+            //------------------------------------------------------------------
+// Check for game end: time ran out
+//------------------------------------------------------------------
             if (endState == Level1End::PLAYING && TimeOfDay::HasEnded())
             {
                 endState = (Gold::GetTotal() >= GOLD_WIN_TARGET)
                     ? Level1End::WIN : Level1End::LOSE;
             }
 
-            // Win/lose overlay: fade in, handle restart, freeze gameplay
+            // Win/lose overlay / merchant sequence: freeze normal gameplay
             if (endState != Level1End::PLAYING)
             {
                 fadeAlpha = std::fminf(fadeAlpha + dt * 0.5f, 1.f);
-                if (AEInputCheckTriggered(AEVK_R))
-                    nextState = GS_RESTART;
+
+                if (endState == Level1End::WIN)
+                {
+                    // Start merchant only when SPACE is pressed
+                    if (!merchantStarted && AEInputCheckTriggered(AEVK_SPACE))
+                    {
+                        MerchantSystem::Start(merchant);
+                        merchantStarted = true;
+                    }
+
+                    // Once started, merchant walks in and shop can be used
+                    if (merchantStarted)
+                    {
+                        MerchantSystem::Update(merchant, dt);
+                        MerchantSystem::HandleMousePurchase(merchant, PlayerSystem::p1->held);
+
+                        if (!merchant.active)
+                        {
+                            nextState = GS_RESTART; // change later if needed
+                        }
+                    }
+
+                    return;
+                }
+
+                // LOSE flow
+                if (fadeAlpha >= 1.f)
+                {
+                    if (AEInputCheckTriggered(AEVK_R))
+                        nextState = GS_RESTART;
+                }
+
                 return;
             }
-
             //------------------------------------------------------------------
             // Player movement — tile map blocks walls (ID=1).
             // Pots, chests, tables, and WAITING customers use per-axis AABB.
@@ -603,7 +648,7 @@ void Level1_Draw()
             {
                 const TextEntry& e = textSequence[currentTextIndex];
                 BasicUtilities::drawText(fontId, e.text, e.x, e.y, e.scale,
-                                         e.r, e.g, e.b, alpha);
+                    e.r, e.g, e.b, alpha);
             }
         }
     }
@@ -640,7 +685,7 @@ void Level1_Draw()
         CustomerSystem::CustomerPool_Draw(customerPool, fontId);
 
         // Draw entities
-		Entity::Draw();
+        Entity::Draw();
 
         // ── Player + particles — draw order based on perspective ─────────────
         // Facing UP  → player's back is to the camera; particles appear below.
@@ -762,12 +807,19 @@ void Level1_Draw()
 
         // ── Win/lose overlay — fade to black then show result + restart hint ─
         if (endState != Level1End::PLAYING)
-        {
-            AEGfxSetRenderMode(AE_GFX_RM_COLOR);
-            AEGfxSetBlendMode(AE_GFX_BM_BLEND);
-            AEGfxSetTransparency(fadeAlpha);
-            AEGfxSetColorToMultiply(0.f, 0.f, 0.f, 1.f);
-            AEGfxSetColorToAdd(0.f, 0.f, 0.f, 0.f);
+{
+    AEGfxSetRenderMode(AE_GFX_RM_COLOR);
+    AEGfxSetBlendMode(AE_GFX_BM_BLEND);
+
+    float overlayAlpha = fadeAlpha;
+
+    // Keep the level visible when the merchant arrives after a win
+    if (endState == Level1End::WIN)
+        overlayAlpha = 0.35f;
+
+    AEGfxSetTransparency(overlayAlpha);
+    AEGfxSetColorToMultiply(0.f, 0.f, 0.f, 1.f);
+    AEGfxSetColorToAdd(0.f, 0.f, 0.f, 0.f);
 
             // Full-screen black quad centred on the camera position
             AEMtx33 sclMtx{}, trsMtx{}, mtx{};
@@ -786,11 +838,34 @@ void Level1_Draw()
                 const float mg = win ? 0.85f : 0.2f;
                 const float mb = win ? 0.0f : 0.2f;
 
-                // drawText uses screen-space coordinates (camera does not affect it)
                 BasicUtilities::drawText(fontId, msg,
                     0.f, 50.f, 2.0f, mr, mg, mb, 1.f);
-                BasicUtilities::drawText(fontId, "press R to restart",
-                    0.f, -40.f, 0.8f, 1.f, 1.f, 1.f, 1.f);
+
+                if (win)
+                {
+                    if (!merchantStarted)
+                    {
+                        BasicUtilities::drawText(fontId, "press SPACE to call the merchant",
+                            0.f, -20.f, 0.8f, 1.f, 1.f, 1.f, 1.f);
+
+                        BasicUtilities::drawText(fontId, "press R to replay level",
+                            0.f, -60.f, 0.8f, 1.f, 1.f, 1.f, 1.f);
+                    }
+                    else
+                    {
+                        BasicUtilities::drawText(fontId, "click items to buy, press N to skip",
+                            0.f, -40.f, 0.7f, 1.f, 1.f, 1.f, 1.f);
+                    }
+                }
+                else
+                {
+                    BasicUtilities::drawText(fontId, "press R to restart",
+                        0.f, -40.f, 0.8f, 1.f, 1.f, 1.f, 1.f);
+                }
+            }
+            if (endState == Level1End::WIN && merchantStarted)
+            {
+                MerchantSystem::Draw(merchant, fontId);
             }
         }
 
@@ -819,8 +894,8 @@ void Level1_Draw()
             // Player AABB
             if (PlayerSystem::p1)
                 drawAABB(PlayerSystem::p1->GetCoordinates().x, PlayerSystem::p1->GetCoordinates().y,
-                         PLAYER_HW, PLAYER_HH,
-                         Debug::PLAYER_R, Debug::PLAYER_G, Debug::PLAYER_B);
+                    PLAYER_HW, PLAYER_HH,
+                    Debug::PLAYER_R, Debug::PLAYER_G, Debug::PLAYER_B);
             // Pot AABBs
             for (int i = 0; i < potCount; ++i)
                 drawAABB(potPositions[i].x, potPositions[i].y, PROP_COLL_HW, PROP_COLL_HH,
@@ -847,8 +922,8 @@ void Level1_Draw()
 
                 const char* faceStr =
                     dbgP.GetLastDirection() == Entity::FaceDirection::UP ? "UP" :
-                    dbgP.GetLastDirection() == Entity::FaceDirection::DOWN  ? "DOWN"  :
-                    dbgP.GetLastDirection() == Entity::FaceDirection::LEFT  ? "LEFT"  : "RIGHT";
+                    dbgP.GetLastDirection() == Entity::FaceDirection::DOWN ? "DOWN" :
+                    dbgP.GetLastDirection() == Entity::FaceDirection::LEFT ? "LEFT" : "RIGHT";
 
                 const char* heldStr =
                     dbgP.held.type == HeldItem::SEED ? "SEED" :
@@ -883,7 +958,6 @@ void Level1_Draw()
         }
     }
 }
-
 void Level1_Free()
 {
     AEGfxMeshFree(squareMesh); squareMesh = nullptr;
@@ -894,12 +968,13 @@ void Level1_Free()
     TableSystem::TableSystem_Free(tableState);
     CustomerSystem::CustomerPool_Free(customerPool);
     AEGfxSetCamPosition(0.f, 0.f);
+    MerchantSystem::Free();
 }
 
 void Level1_Unload()
 {
     if (uiCardTexture) {
-        AEGfxTextureUnload(uiCardTexture);
+          AEGfxTextureUnload(uiCardTexture);
         uiCardTexture = nullptr;
     }
     AEGfxDestroyFont(fontId);
@@ -913,6 +988,7 @@ void Level1_Unload()
     TableSystem::TableSystem_Unload(tableState);
     CustomerSystem::CustomerPool_Unload(customerPool);
 	Entity::Unload();
+    MerchantSystem::Unload();
 
     AEGfxTextureUnload(infoPanelTex);
     AEGfxTextureUnload(goldIconTex);
