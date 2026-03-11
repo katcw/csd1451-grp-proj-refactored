@@ -79,7 +79,7 @@ namespace
     // Array of text to print
     const TextEntry textSequence[] =
     {
-        { "once upon a time, there was a man named prassana",          0.f, 0.f, 1.f, 1.f, 1.f, 1.f },
+        { "once upon a time, there was a man named prasanna",          0.f, 0.f, 1.f, 1.f, 1.f, 1.f },
         { "and he said that our 200 minds combined can't beat his one", 0.f, 0.f, 1.f, 1.f, 1.f, 1.f },
         { "i guess he's right...",                                      0.f, 0.f, 1.f, 1.f, 1.f, 1.f },
     };

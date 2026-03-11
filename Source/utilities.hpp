@@ -15,49 +15,34 @@
 
 namespace BasicUtilities
 {
-	//============================================================================
-	// STRUCTS
-	//============================================================================
+	// Button struct to contain button data 
 	struct Button
 	{
-		float x, y;
-		float width, height;
-		float normalScale, hoverScale, currentScale;
-		bool isHovered;
+		float	x, y; // Contains X and Y position values of button
+		float	width, height; // Contains width and height of button
+		float	normalScale; // Original scale of button
+		float	hoverScale; // Hover / target scale of button
+		float	currentScale; // Current scale of button (used for tracking)
+		bool	isHovered; // State to check if button is being hovered on 
 
-		/******************************************************************************/
-		/*
-			Checks if the given mouse position is inside the button's bounds.
-			Takes into account the button's current scale for accurate detection
-			Returns true if the mouse is hovering over the button, false otherwise
-		*/
-		/******************************************************************************/
-		bool isClicked(float mouseX, float mouseY)
+		bool isClicked(float mouseX, float mouseY) const
 		{
-			float halfWidth = (width * currentScale) / 2.0f;
-			float halfHeight = (height * currentScale) / 2.0f;
+			float halfWidth		= (width * currentScale) / 2.0f;
+			float halfHeight	= (height * currentScale) / 2.0f;
 
 			return (mouseX >= x - halfWidth && mouseX <= x + halfWidth &&
-				mouseY >= y - halfHeight && mouseY <= y + halfHeight);
+					mouseY >= y - halfHeight && mouseY <= y + halfHeight);
 		}
 
-		/******************************************************************************/
-		/*
-			Updates the button's scale based on whether the mouse is hovering over it,
-			and smoothly transitions between normal and hover scale with easing
-		*/
-		/******************************************************************************/
+		// Update function to apply hover ease effect on buttons  
 		void updateHover(float mouseX, float mouseY, float deltaTime, float easeSpeed)
 		{
-			isHovered = isClicked(mouseX, mouseY);
-			float targetScale = isHovered ? hoverScale : normalScale;
-			currentScale += (targetScale - currentScale) * easeSpeed * deltaTime;
+			isHovered			=	isClicked(mouseX, mouseY);
+			float targetScale	=	isHovered ? hoverScale : normalScale;
+			currentScale		+=	(targetScale - currentScale) * easeSpeed * deltaTime;
 		}
 	};
 
-	//============================================================================
-	// FUNCTION DECLARATIONS
-	//============================================================================
     AEGfxTexture* loadTexture(const char* filepath);
     AEGfxVertexList* createSquareMesh(float uvHeight = 1.0f, float uvWidth = 1.0f, unsigned int color = 0xFFFFFFFF);
 	void screenCoordsToWorldCoords(s32 screenX, s32 screenY, float& worldX, float& worldY);
@@ -133,4 +118,7 @@ namespace BasicUtilities
 	{
 		return t * t * (3.f - 2.f * t);
 	}
+
+	void Draw_UI_Element(AEGfxVertexList* mesh, AEGfxTexture* texture, AEMtx33& transform);
+
 }

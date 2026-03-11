@@ -7,9 +7,6 @@
 @brief
 ============================================================================*/
 
-//============================================================================
-// INCLUDES
-//============================================================================
 #include <iostream>
 #include "AEEngine.h"
 #include "AEGraphics.h"
@@ -17,132 +14,202 @@
 #include "main_menu.hpp"
 #include "game_state_manager.hpp"
 #include "game_state_list.hpp"
+#include "sprite.hpp"
 #include "utilities.hpp"
 
 namespace
 {
-	AEGfxTexture* playButtonTexture = nullptr;
-	AEGfxTexture* creditsButtonTexture = nullptr;
-	AEGfxTexture* exitButtonTexture = nullptr;
+	// All necessary textures
+	AEGfxTexture* playTexture		= nullptr;
+	AEGfxTexture* creditsTexture	= nullptr;
+	AEGfxTexture* quitTexture		= nullptr;
+	AEGfxTexture* settingsTexture	= nullptr;
+	AEGfxTexture* tutorialTexture	= nullptr;
 
-	AEGfxVertexList* buttonMesh = nullptr;
+	// All necessary vertex lists
+	AEGfxVertexList* buttonMesh		= nullptr;
+	AEGfxVertexList* miniButtonMesh	= nullptr;
+	AEGfxVertexList* spriteMesh		= nullptr;
 
-	AEMtx33 buttonScale = { 0 },
-		playButtonTranslate = { 0 }, creditsButtonTranslate = { 0 }, exitButtonTranslate = { 0 },
-		playButtonTransform = { 0 }, creditsButtonTransform = { 0 }, exitButtonTransform = { 0 };
+	// All necessary matrices
+	AEMtx33 buttonScale{}, miniButtonScale{};
+	AEMtx33 playTranslate{}, playTransform{};
+	AEMtx33 creditsTranslate{}, creditsTransform{};
+	AEMtx33 quitTranslate{}, quitTransform{};
+	AEMtx33 settingsTranslate{}, settingsTransform{};
+	AEMtx33 tutorialTranslate{}, tutorialTransform{};
 
-	BasicUtilities::Button playButton, creditsButton, exitButton;
+	// Button struct to store button data
+	BasicUtilities::Button play, credits, quit, settings, tutorial;
 
-	float easeSpeed = 8.0f; // Adjust this to control hover speed
+	// Character sprite data 
+	Sprite::SpriteData characterSprite;
+	Sprite::AnimationState characterSpriteAnimState;
+	AEVec2 menuCharacterPosition{ 400.0f, -180.0f };
+	AEVec2 menuCharacterScale{ 800.0f, 800.0f };
+	constexpr unsigned int idleTextureSlot	= 0;
+	constexpr unsigned int idleFacingTag	= 3;
+
+	// Hover ease speed
+	float easeSpeed	= 8.0f;
 }
 
 void MainMenu_Load()
 {
+	// Console message for debug
 	std::cout << "MAIN MENU LOADED" << '\n';
-	playButtonTexture = BasicUtilities::loadTexture("Assets/prototype_play_button.png");
-	creditsButtonTexture = BasicUtilities::loadTexture("Assets/prototype_credits_button.png");
-	exitButtonTexture = BasicUtilities::loadTexture("Assets/prototype_exit_button.png");
+
+	playTexture		= BasicUtilities::loadTexture("Assets/ui-assets/play_button.png");
+	creditsTexture	= BasicUtilities::loadTexture("Assets/ui-assets/credits_button.png");
+	quitTexture		= BasicUtilities::loadTexture("Assets/ui-assets/exit_button.png");
+	settingsTexture = BasicUtilities::loadTexture("Assets/ui-assets/settings_button.png");
+	tutorialTexture = BasicUtilities::loadTexture("Assets/ui-assets/tutorial_button.png");
+
+	Sprite::LoadEntry(characterSprite, idleTextureSlot, "Assets/character-assets/MC_Idle.png", "Assets/character-assets/MC_Idle.json");
 }
 
 void MainMenu_Initialise()
 {
+	// Create square mesh as template
 	buttonMesh = BasicUtilities::createSquareMesh();
+	miniButtonMesh = BasicUtilities::createSquareMesh();
+	spriteMesh = BasicUtilities::createSquareMesh(0.25, 0.25);
 
-	playButton = { -400.f, 0.0f, 200.0f, 200.0f, 1.0f, 1.1f, 1.0f, false };
-	creditsButton = { 0.0f, 0.0f, 200.0f, 200.0f, 1.0f, 1.1f, 1.0f, false };
-	exitButton = { 400.f, 0.0f, 200.0f, 200.0f, 1.0f, 1.1f, 1.0f, false };
+	// Button struct initialisation
+	// Adjust values here to change button positions and scales
+	play = { -450.0f, 0.0f, 350.0f, 80.0f , 1.0f, 1.1f, 1.0f, false };
+	credits = { -450.0f, -130.0f, 350.0f, 80.0f, 1.0f, 1.1f, 1.0f, false };
+	quit = { -450.0f, -260.0f, 350.0f, 80.0f, 1.0f, 1.1f, 1.0f, false };
+	settings = { 580.0f, 350.0f, 150.0f, 150.0f, 1.0f, 1.08f, 1.0f, false };
+	tutorial = { 700.0, 350.0f, 150.0f, 150.0f, 1.0f, 1.08f, 1.0f, false };
 
-	AEMtx33Trans(&playButtonTranslate, playButton.x, playButton.y);
-	AEMtx33Trans(&creditsButtonTranslate, creditsButton.x, creditsButton.y);
-	AEMtx33Trans(&exitButtonTranslate, exitButton.x, exitButton.y);
+	// Translation matrices to apply positions
+	AEMtx33Trans(&playTranslate, play.x, play.y);
+	AEMtx33Trans(&creditsTranslate, credits.x, credits.y);
+	AEMtx33Trans(&quitTranslate, quit.x, quit.y);
+	AEMtx33Trans(&settingsTranslate, settings.x, settings.y);
+	AEMtx33Trans(&tutorialTranslate, tutorial.x, tutorial.y);
 }
 
 void MainMenu_Update()
 {
+	// dT
+	float deltaTime = static_cast<float>(AEFrameRateControllerGetFrameTime());
+
+	// Get current mouse position
 	s32 mouseX, mouseY;
 	AEInputGetCursorPosition(&mouseX, &mouseY);
 
+	// Convert mouse positions from screen to world coordinates
 	float worldMouseX, worldMouseY;
 	BasicUtilities::screenCoordsToWorldCoords(mouseX, mouseY, worldMouseX, worldMouseY);
 
-	float deltaTime = static_cast<float>(AEFrameRateControllerGetFrameTime());
+	// Apply hover easing to all visible buttons
+	play.updateHover(worldMouseX, worldMouseY, deltaTime, easeSpeed);
+	credits.updateHover(worldMouseX, worldMouseY, deltaTime, easeSpeed);
+	quit.updateHover(worldMouseX, worldMouseY, deltaTime, easeSpeed);
+	settings.updateHover(worldMouseX, worldMouseY, deltaTime, easeSpeed);
+	tutorial.updateHover(worldMouseX, worldMouseY, deltaTime, easeSpeed);
 
-	playButton.updateHover(worldMouseX, worldMouseY, deltaTime, easeSpeed);
-	creditsButton.updateHover(worldMouseX, worldMouseY, deltaTime, easeSpeed);
-	exitButton.updateHover(worldMouseX, worldMouseY, deltaTime, easeSpeed);
-
-	if (playButton.isClicked(worldMouseX, worldMouseY) &&
-		AEInputCheckTriggered(AEVK_LBUTTON))
-	{
-		nextState = GS_TUTORIAL;
-	}
-
-	if (creditsButton.isClicked(worldMouseX, worldMouseY) &&
+	// Button functionality
+	if (play.isClicked(worldMouseX, worldMouseY) &&
 		AEInputCheckTriggered(AEVK_LBUTTON))
 	{
 		nextState = GS_LEVEL1;
 	}
 
-	if (exitButton.isClicked(worldMouseX, worldMouseY) &&
+	if (tutorial.isClicked(worldMouseX, worldMouseY) &&
+		AEInputCheckTriggered(AEVK_LBUTTON))
+	{
+		nextState = GS_TUTORIAL;
+	}
+
+	if (quit.isClicked(worldMouseX, worldMouseY) &&
 		AEInputCheckTriggered(AEVK_LBUTTON))
 	{
 		nextState = GS_EXIT;
 	}
 
-	AEMtx33Scale(&buttonScale, 200.0f * playButton.currentScale, 200.0f * playButton.currentScale);
-	AEMtx33Concat(&playButtonTransform, &playButtonTranslate, &buttonScale);
+	AEMtx33Scale(&buttonScale, play.width * play.currentScale, play.height * play.currentScale);
+	AEMtx33Concat(&playTransform, &playTranslate, &buttonScale);
 
-	AEMtx33Scale(&buttonScale, 200.0f * creditsButton.currentScale, 200.0f * creditsButton.currentScale);
-	AEMtx33Concat(&creditsButtonTransform, &creditsButtonTranslate, &buttonScale);
+	AEMtx33Scale(&buttonScale, credits.width * credits.currentScale, credits.height * credits.currentScale);
+	AEMtx33Concat(&creditsTransform, &creditsTranslate, &buttonScale);
 
-	AEMtx33Scale(&buttonScale, 200.0f * exitButton.currentScale, 200.0f * exitButton.currentScale);
-	AEMtx33Concat(&exitButtonTransform, &exitButtonTranslate, &buttonScale);
+	AEMtx33Scale(&buttonScale, quit.width * quit.currentScale, quit.height * quit.currentScale);
+	AEMtx33Concat(&quitTransform, &quitTranslate, &buttonScale);
 
-	if (AEInputCheckTriggered(AEVK_M))
-	{
-		nextState = GS_RUNE_TEST;
-	}
+	AEMtx33Scale(&miniButtonScale, settings.width * settings.currentScale, settings.height * settings.currentScale);
+	AEMtx33Concat(&settingsTransform, &settingsTranslate, &miniButtonScale);
+
+	AEMtx33Scale(&miniButtonScale, tutorial.width * tutorial.currentScale, tutorial.height * tutorial.currentScale);
+	AEMtx33Concat(&tutorialTransform, &tutorialTranslate, &miniButtonScale);
+
+	Sprite::UpdateAnimation(characterSpriteAnimState, characterSprite.metas[idleTextureSlot], idleFacingTag);
+
+	// [!] RUNE TEST FOR HH
+	//if (AEInputCheckTriggered(AEVK_M))
+	//{
+	//	nextState = GS_RUNE_TEST;
+	//}
 }
 
 void MainMenu_Draw()
 {
 	AEGfxSetBackgroundColor(0.85f, 0.84f, 0.80f);
-
 	AEGfxSetRenderMode(AE_GFX_RM_TEXTURE);
 
-	AEGfxSetColorToMultiply(1.0f, 1.0f, 1.0f, 1.0f);
-	AEGfxSetColorToAdd(0.0f, 0.0f, 0.0f, 0.0f);
-	AEGfxSetBlendMode(AE_GFX_BM_BLEND);
-	AEGfxSetTransparency(1.0f);
-	AEGfxTextureSet(playButtonTexture, 0, 0);
-	AEGfxSetTransform(playButtonTransform.m);
-	AEGfxMeshDraw(buttonMesh, AE_GFX_MDM_TRIANGLES);
+	if (spriteMesh && characterSprite.textures[idleTextureSlot])
+	{
+		Sprite::DrawAnimation(spriteMesh,
+			characterSprite.textures[idleTextureSlot],
+			characterSpriteAnimState,
+			menuCharacterPosition,
+			menuCharacterScale);
+	}
 
-	AEGfxSetColorToMultiply(1.0f, 1.0f, 1.0f, 1.0f);
-	AEGfxSetColorToAdd(0.0f, 0.0f, 0.0f, 0.0f);
-	AEGfxSetBlendMode(AE_GFX_BM_BLEND);
-	AEGfxSetTransparency(1.0f);
-	AEGfxTextureSet(creditsButtonTexture, 0, 0);
-	AEGfxSetTransform(creditsButtonTransform.m);
-	AEGfxMeshDraw(buttonMesh, AE_GFX_MDM_TRIANGLES);
-
-	AEGfxSetColorToMultiply(1.0f, 1.0f, 1.0f, 1.0f);
-	AEGfxSetColorToAdd(0.0f, 0.0f, 0.0f, 0.0f);
-	AEGfxSetBlendMode(AE_GFX_BM_BLEND);
-	AEGfxSetTransparency(1.0f);
-	AEGfxTextureSet(exitButtonTexture, 0, 0);
-	AEGfxSetTransform(exitButtonTransform.m);
-	AEGfxMeshDraw(buttonMesh, AE_GFX_MDM_TRIANGLES);
+	BasicUtilities::Draw_UI_Element(buttonMesh, playTexture, playTransform);
+	BasicUtilities::Draw_UI_Element(buttonMesh, creditsTexture, creditsTransform);
+	BasicUtilities::Draw_UI_Element(buttonMesh, quitTexture, quitTransform);
+	BasicUtilities::Draw_UI_Element(miniButtonMesh, settingsTexture, settingsTransform);
+	BasicUtilities::Draw_UI_Element(miniButtonMesh, tutorialTexture, tutorialTransform);
 }
 
 void MainMenu_Free()
 {
-	AEGfxMeshFree(buttonMesh);
+	if (buttonMesh)
+	{
+		AEGfxMeshFree(buttonMesh);
+		buttonMesh = nullptr;
+	}
+
+	if (miniButtonMesh)
+	{
+		AEGfxMeshFree(miniButtonMesh);
+		miniButtonMesh = nullptr;
+	}
+
+	if (spriteMesh)
+	{
+		AEGfxMeshFree(spriteMesh);
+		spriteMesh = nullptr;
+	}
 }
 
 void MainMenu_Unload()
 {
-	AEGfxTextureUnload(playButtonTexture);
-	AEGfxTextureUnload(creditsButtonTexture);
-	AEGfxTextureUnload(exitButtonTexture);
+	AEGfxTextureUnload(playTexture);
+	AEGfxTextureUnload(creditsTexture);
+	AEGfxTextureUnload(quitTexture);
+	AEGfxTextureUnload(settingsTexture);
+	AEGfxTextureUnload(tutorialTexture);
+
+	playTexture = nullptr;
+	creditsTexture = nullptr;
+	quitTexture = nullptr;
+	settingsTexture = nullptr;
+	tutorialTexture = nullptr;
+
+	characterSprite.Free();
+	characterSpriteAnimState = Sprite::AnimationState{};
 }
