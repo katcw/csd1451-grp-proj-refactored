@@ -14,6 +14,7 @@
     <ClCompile Include="..\Source\collision.cpp" />
     <ClCompile Include="..\Source\customer.cpp" />
     <ClCompile Include="..\Source\debug.cpp" />
+    <ClCompile Include="..\Source\entity.cpp" />
     <ClCompile Include="..\source\game_state_manager.cpp" />
     <ClCompile Include="..\source\main.cpp" />
     <ClCompile Include="..\Source\main_menu.cpp" />
@@ -25,7 +26,6 @@
     <ClCompile Include="..\Source\rune_minigame.cpp" />
     <ClCompile Include="..\Source\time_of_day.cpp" />
     <ClCompile Include="..\source\splash_state.cpp" />
-    <ClCompile Include="..\Source\sprite.cpp" />
     <ClCompile Include="..\Source\tutorial.cpp" />
     <ClCompile Include="..\Source\level1.cpp" />
     <ClCompile Include="..\Source\tables.cpp" />
@@ -48,7 +48,6 @@
     <ClInclude Include="..\Source\rune_minigame.hpp" />
     <ClInclude Include="..\Source\time_of_day.hpp" />
     <ClInclude Include="..\source\splash_state.hpp" />
-    <ClInclude Include="..\Source\sprite.hpp" />
     <ClInclude Include="..\Source\tutorial.hpp" />
     <ClInclude Include="..\Source\level1.hpp" />
     <ClInclude Include="..\Source\tables.hpp" />

@@ -3,13 +3,14 @@
 #include "AEGraphics.h"
 #include "AEMtx33.h"
 #include "gold.hpp"
-#include "sprite.hpp"
 #include "utilities.hpp"
 
 #include <cstdio>
 #include <cstring>
 #include <cmath>
 #include <iostream>
+
+namespace Sprite = BasicUtilities::Sprite;
 
 namespace
 {
@@ -240,7 +241,7 @@ namespace MerchantSystem
         const unsigned int tagIndex = GetAnimTagIndex(m.facing);
 
         if (texSlot < gMerchantSprite.count)
-            Sprite::UpdateAnimation(gMerchantAnimState, gMerchantSprite.metas[texSlot], tagIndex);
+            Sprite::UpdateAnimation(gMerchantAnimState, gMerchantSprite.jsonList[texSlot], tagIndex);
     }
 
     void Draw(Merchant& m, s8 fontId)
@@ -249,10 +250,10 @@ namespace MerchantSystem
 
         // Draw merchant in world-space first
         const unsigned int texSlot = GetAnimTexSlot(m.moveState);
-        if (texSlot < gMerchantSprite.count && gMerchantSprite.textures[texSlot] && gMerchantMesh)
+        if (texSlot < gMerchantSprite.count && gMerchantSprite.textureList[texSlot] && gMerchantMesh)
         {
             Sprite::DrawAnimation(gMerchantMesh,
-                gMerchantSprite.textures[texSlot],
+                gMerchantSprite.textureList[texSlot],
                 gMerchantAnimState,
                 m.position,
                 { MERCHANT_SCALE, MERCHANT_SCALE });

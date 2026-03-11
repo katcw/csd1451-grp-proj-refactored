@@ -255,7 +255,7 @@ namespace
             }
         }
         else if (currentTask == TASK_SELLING && customerState.active)
-            target = &customerState.customer.position;   // tracks the customer as they move
+            target = &customerState.customer.RefCoordinates();   // tracks the customer as they move
         // TASK_RETRY intentionally has no pointer
 
         if (!target) return;
@@ -285,6 +285,7 @@ void Tutorial_Load()
     AEVec2 origin = { -800.f, -448.f };
     Collision::Map_Load("Assets/map_data.txt", collisionMap, 64.f, origin);
 
+    Entity::Load();
     plantSystem::PlantSystem_Load(plantState);
     ParticleSystem::Load(particleState);
     CustomerSystem::CustomerSystem_Load(customerState);
@@ -325,6 +326,8 @@ void Tutorial_Initialise()
         PlayerSystem::Init(spawnBuf[0]);
     else
         PlayerSystem::Init({ 0.f, 0.f }); // Fallback if no player ID present in map
+
+    Entity::Init();
 
     // Pots ID 3
     potCount = Collision::Map_GetCentres(collisionMap, 3,
@@ -464,8 +467,10 @@ void Tutorial_Update()
             //   X-axis : block from all sides
             //   Y-axis : block from top only; allow overlap from below
             //------------------------------------------------------------------
-            AEVec2 prevPos = PlayerSystem::p1->position;
+            AEVec2 prevPos = PlayerSystem::p1->GetCoordinates();
             PlayerSystem::Update(collisionMap, dt);
+
+            Entity::Update();
 
             // Directional prop AABB (PW/PH = player half-extents, PROP_HW/HH = prop half-extents)
             {
@@ -487,35 +492,35 @@ void Tutorial_Update()
                 constexpr float PROP_BOTTOM_ALLOW = 0.f;
 
                 auto isPropBlocked = [&](float cx, float cy, bool topOnly) -> bool
-                    {
-                        for (int i = 0; i < potCount; ++i)
-                            if (fabsf(cx - potPositions[i].x) < PW + PROP_HW &&
-                                fabsf(cy - potPositions[i].y) < PH + PROP_HH &&
-                                (!topOnly || cy >= potPositions[i].y - PROP_BOTTOM_ALLOW))
-                                return true;
-                        for (int i = 0; i < chestCount; ++i)
-                            if (fabsf(cx - chests[i].pos.x) < PW + PROP_HW &&
-                                fabsf(cy - chests[i].pos.y) < PH + PROP_HH &&
-                                (!topOnly || cy >= chests[i].pos.y - PROP_BOTTOM_ALLOW))
-                                return true;
-                        if (customerState.active)
-                            if (fabsf(cx - customerState.customer.position.x) < PW + PROP_HW &&
-                                fabsf(cy - customerState.customer.position.y) < PH + PROP_HH &&
-                                (!topOnly || cy >= customerState.customer.position.y - PROP_BOTTOM_ALLOW))
-                                return true;
-                        return false;
-                    };
+                {
+                    for (int i = 0; i < potCount; ++i)
+                        if (fabsf(cx - potPositions[i].x) < PW + PROP_HW &&
+                            fabsf(cy - potPositions[i].y) < PH + PROP_HH &&
+                            (!topOnly || cy >= potPositions[i].y - PROP_BOTTOM_ALLOW))
+                            return true;
+                    for (int i = 0; i < chestCount; ++i)
+                        if (fabsf(cx - chests[i].pos.x) < PW + PROP_HW &&
+                            fabsf(cy - chests[i].pos.y) < PH + PROP_HH &&
+                            (!topOnly || cy >= chests[i].pos.y - PROP_BOTTOM_ALLOW))
+                            return true;
+                    if (customerState.active)
+                        if (fabsf(cx - customerState.customer.GetCoordinates().x) < PW + PROP_HW &&
+                            fabsf(cy - customerState.customer.GetCoordinates().y) < PH + PROP_HH &&
+                            (!topOnly || cy >= customerState.customer.GetCoordinates().y - PROP_BOTTOM_ALLOW))
+                            return true;
+                    return false;
+                };
 
-                if (isPropBlocked(PlayerSystem::p1->position.x, prevPos.y, true))
-                    PlayerSystem::p1->position.x = prevPos.x;
-                if (isPropBlocked(PlayerSystem::p1->position.x, PlayerSystem::p1->position.y, true))
-                    PlayerSystem::p1->position.y = prevPos.y;
+                if (isPropBlocked(PlayerSystem::p1->GetCoordinates().x, prevPos.y, true))
+                    PlayerSystem::p1->RefX() = prevPos.x;
+                if (isPropBlocked(PlayerSystem::p1->GetCoordinates().x, PlayerSystem::p1->GetCoordinates().y, true))
+                    PlayerSystem::p1->RefY() = prevPos.y;
             }
 
             // Plant system
             if (currentTask != TASK_INTRO)
                 plantSystem::PlantSystem_Update(plantState, dt,
-                    PlayerSystem::p1->position, PlayerSystem::p1->held,
+                    PlayerSystem::p1->GetCoordinates(), PlayerSystem::p1->held,
                     potPositions, potCount, chests, chestCount);
 
             // ── TUTORIAL TASK SYSTEM ─────────────────────────────────────────────
@@ -652,8 +657,8 @@ void Tutorial_Update()
                 AEInputCheckTriggered(AEVK_E) &&
                 PlayerSystem::p1->held.type == HeldItem::FLOWER)
             {
-                float dx = customerState.customer.position.x - PlayerSystem::p1->position.x;
-                float dy = customerState.customer.position.y - PlayerSystem::p1->position.y;
+                float dx = customerState.customer.GetCoordinates().x - PlayerSystem::p1->GetCoordinates().x;
+                float dy = customerState.customer.GetCoordinates().y - PlayerSystem::p1->GetCoordinates().y;
                 if (std::sqrt(dx * dx + dy * dy) < plantSystem::INTERACT_RADIUS)
                 {
                     CustomerSystem::CustomerSystem_Serve(customerState);
@@ -680,7 +685,7 @@ void Tutorial_Update()
             if (AEInputCheckCurr(AEVK_Q) && particleState.emitTimer <= 0.f)
             {
                 int waterIdx = plantSystem::PlantSystem_NearestPlant(
-                    plantState, PlayerSystem::p1->position);
+                    plantState, PlayerSystem::p1->GetCoordinates());
                 if (waterIdx >= 0 && plantState.can.water > 0.f)
                 {
                     ParticleSystem::EmitWater(particleState,
@@ -755,7 +760,7 @@ void Tutorial_Draw()
         //              the pot), so player is drawn on top of the particles.
         // All other  → player faces the camera (player is "behind" the pot),
         //              so particles appear on top of the player.
-        if (PlayerSystem::p1->facing == Entity::FaceDirection::UP)
+        if (PlayerSystem::p1->GetLastDirection() == Entity::FaceDirection::UP)
         {
             ParticleSystem::Draw(particleState);
             PlayerSystem::Draw();
@@ -765,6 +770,8 @@ void Tutorial_Draw()
             PlayerSystem::Draw();
             ParticleSystem::Draw(particleState);
         }
+
+        Entity::Draw();
 
         // ── Customer UI (patience bar + order bubble) — always above player ──
         CustomerSystem::CustomerSystem_DrawUI(customerState, fontId, nullptr,
@@ -877,9 +884,9 @@ void Tutorial_Draw()
 
             // Player AABB
             if (PlayerSystem::p1)
-                drawAABB(PlayerSystem::p1->position.x, PlayerSystem::p1->position.y,
-                    PLAYER_HW, PLAYER_HH,
-                    Debug::PLAYER_R, Debug::PLAYER_G, Debug::PLAYER_B);
+                drawAABB(PlayerSystem::p1->GetCoordinates().x, PlayerSystem::p1->GetCoordinates().y,
+                         PLAYER_HW, PLAYER_HH,
+                         Debug::PLAYER_R, Debug::PLAYER_G, Debug::PLAYER_B);
             // Pot AABBs
             for (int i = 0; i < potCount; ++i)
                 drawAABB(potPositions[i].x, potPositions[i].y, PROP_COLL_HW, PROP_COLL_HH,
@@ -890,9 +897,9 @@ void Tutorial_Draw()
                     Debug::CHEST_R, Debug::CHEST_G, Debug::CHEST_B);
             // Customer AABB
             if (customerState.active)
-                drawAABB(customerState.customer.position.x, customerState.customer.position.y,
-                    PROP_COLL_HW, PROP_COLL_HH,
-                    Debug::CUSTOMER_R, Debug::CUSTOMER_G, Debug::CUSTOMER_B);
+                drawAABB(customerState.customer.GetCoordinates().x, customerState.customer.GetCoordinates().y,
+                         PROP_COLL_HW, PROP_COLL_HH,
+                         Debug::CUSTOMER_R, Debug::CUSTOMER_G, Debug::CUSTOMER_B);
 
             // Debug status text
             if (PlayerSystem::p1)
@@ -900,9 +907,9 @@ void Tutorial_Draw()
                 const auto& dbgP = *PlayerSystem::p1;
 
                 const char* faceStr =
-                    dbgP.facing == Entity::FaceDirection::UP ? "UP" :
-                    dbgP.facing == Entity::FaceDirection::DOWN ? "DOWN" :
-                    dbgP.facing == Entity::FaceDirection::LEFT ? "LEFT" : "RIGHT";
+                    dbgP.GetLastDirection() == Entity::FaceDirection::UP ? "UP" :
+                    dbgP.GetLastDirection() == Entity::FaceDirection::DOWN  ? "DOWN"  :
+                    dbgP.GetLastDirection() == Entity::FaceDirection::LEFT  ? "LEFT"  : "RIGHT";
 
                 const char* heldStr =
                     dbgP.held.type == HeldItem::SEED ? "SEED" :
@@ -914,7 +921,7 @@ void Tutorial_Draw()
                     -790.f, -380.f, 0.7f, 1.f, 1.f, 0.f, 1.f);
 
                 sprintf_s(dbgBuf, sizeof(dbgBuf), "pos  %.1f  %.1f",
-                    dbgP.position.x, dbgP.position.y);
+                    dbgP.GetCoordinates().x, dbgP.GetCoordinates().y);
                 BasicUtilities::drawText(fontId, dbgBuf,
                     -790.f, -410.f, 0.6f, 1.f, 1.f, 1.f, 1.f);
 
@@ -938,6 +945,7 @@ void Tutorial_Free()
     AEGfxMeshFree(tileMesh);
     tileMesh = nullptr;
     PlayerSystem::Free();
+    Entity::Free();
     plantSystem::PlantSystem_Free(plantState);
     ParticleSystem::Free(particleState);
     CustomerSystem::CustomerSystem_Free(customerState);
@@ -958,6 +966,7 @@ void Tutorial_Unload()
     Collision::Map_Unload(collisionMap);
     plantSystem::PlantSystem_Unload(plantState);
     CustomerSystem::CustomerSystem_Unload(customerState);
+    Entity::Unload();
 
     // Info panel
     AEGfxTextureUnload(infoPanelTex);

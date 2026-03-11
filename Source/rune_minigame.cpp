@@ -91,8 +91,8 @@ namespace RuneMinigame
 			bool validPosition = false;
 			while (!validPosition)
 			{
-				runes[i].position.x = rand() % RUNE_RANGE - RUNE_RANGE / 2;
-				runes[i].position.y = rand() % RUNE_RANGE - RUNE_RANGE / 2;
+				runes[i].position.x = static_cast<f32>(rand() % RUNE_RANGE - RUNE_RANGE / 2);
+				runes[i].position.y = static_cast<f32>(rand() % RUNE_RANGE - RUNE_RANGE / 2);
 
 				// Check distance against all previously placed runes
 				validPosition = true;
@@ -360,10 +360,10 @@ namespace RuneMinigame
 
 namespace
 {
-	bool isMouseOverRune(const AEVec2& mousePos, const RuneMinigame::Rune& rune)
+	bool isMouseOverRune(const AEVec2& checkPos, const RuneMinigame::Rune& rune)
 	{
-		if (mousePos.x >= rune.position.x - RUNE_SIZE/2.f && mousePos.x <= rune.position.x + RUNE_SIZE / 2.f &&
-			mousePos.y >= rune.position.y - RUNE_SIZE / 2.f && mousePos.y <= rune.position.y + RUNE_SIZE / 2.f)
+		if (checkPos.x >= rune.position.x - RUNE_SIZE/2.f && checkPos.x <= rune.position.x + RUNE_SIZE / 2.f &&
+			checkPos.y >= rune.position.y - RUNE_SIZE / 2.f && checkPos.y <= rune.position.y + RUNE_SIZE / 2.f)
 		{
 			return true; // Mouse is over the rune
 		}

@@ -39,6 +39,7 @@
 #include "tables.hpp"
 #include "customer.hpp"
 #include "debug.hpp"
+#include "entity.hpp"
 
 namespace
 {
@@ -251,6 +252,9 @@ void Level1_Load()
     ParticleSystem::Load(particleState);
     TableSystem::TableSystem_Load(tableState);
 
+    // Entity load
+    Entity::Load();
+
     // Customer pool — shared GPU resources for all concurrent customers
     CustomerSystem::CustomerPool_Load(customerPool);
 
@@ -293,6 +297,9 @@ void Level1_Initialise()
         PlayerSystem::Init(spawnBuf[0]);
     else
         PlayerSystem::Init({ 0.f, 0.f });
+
+	// Entity system init
+	Entity::Init();
 
     // Pots (ID 3)
     potCount = Collision::Map_GetCentres(collisionMap, 3,
@@ -461,8 +468,8 @@ void Level1_Update()
 
             for (int i = 0; i < chestCount; ++i)
             {
-                bool inRange = std::fabsf(chests[i].pos.x - PlayerSystem::p1->position.x) < PLAYER_HW + PROP_COLL_HW &&
-                    std::fabsf(chests[i].pos.y - PlayerSystem::p1->position.y) < PLAYER_HH + PROP_COLL_HH;
+                bool inRange = std::fabsf(chests[i].pos.x - PlayerSystem::p1->GetCoordinates().x) < PLAYER_HW + PROP_COLL_HW &&
+                    std::fabsf(chests[i].pos.y - PlayerSystem::p1->GetCoordinates().y) < PLAYER_HH + PROP_COLL_HH;
                 BasicUtilities::tickEase(chestTooltipT[i], inRange, dt, ANIM_SPEED);
             }
 
@@ -476,8 +483,10 @@ void Level1_Update()
                     sl.active && sl.customer.state == CustomerState::WAITING, dt, ANIM_SPEED);
             }
 
-            AEVec2 prevPos = PlayerSystem::p1->position;
+            AEVec2 prevPos = PlayerSystem::p1->GetCoordinates();
             PlayerSystem::Update(collisionMap, dt);
+
+            Entity::Update();
 
             {
                 constexpr float PW = PLAYER_HW, PH = PLAYER_HH;
@@ -507,23 +516,23 @@ void Level1_Update()
                                 (!topOnly || cy >= tableState.tables[i].pos.y - PROP_BOTTOM_ALLOW))
                                 return true;
 
-                        // WAITING customers block the player (ARRIVING/LEAVING are moving; don't block)
-                        for (int ci = 0; ci < CustomerSystem::POOL_MAX; ++ci)
-                        {
-                            const auto& sl = customerPool.slots[ci];
-                            if (!sl.active || sl.customer.state != CustomerState::WAITING) continue;
-                            if (fabsf(cx - sl.customer.position.x) < PW + PROP_HW &&
-                                fabsf(cy - sl.customer.position.y) < PH + PROP_HH &&
-                                (!topOnly || cy >= sl.customer.position.y - PROP_BOTTOM_ALLOW))
-                                return true;
-                        }
-                        return false;
-                    };
+                    // WAITING customers block the player (ARRIVING/LEAVING are moving; don't block)
+                    for (int ci = 0; ci < CustomerSystem::POOL_MAX; ++ci)
+                    {
+                        const auto& sl = customerPool.slots[ci];
+                        if (!sl.active || sl.customer.state != CustomerState::WAITING) continue;
+                        if (fabsf(cx - sl.customer.GetCoordinates().x) < PW + PROP_HW &&
+                            fabsf(cy - sl.customer.GetCoordinates().y) < PH + PROP_HH &&
+                            (!topOnly || cy >= sl.customer.GetCoordinates().y - PROP_BOTTOM_ALLOW))
+                            return true;
+                    }
+                    return false;
+                };
 
-                if (isPropBlocked(PlayerSystem::p1->position.x, prevPos.y, true))
-                    PlayerSystem::p1->position.x = prevPos.x;
-                if (isPropBlocked(PlayerSystem::p1->position.x, PlayerSystem::p1->position.y, true))
-                    PlayerSystem::p1->position.y = prevPos.y;
+                if (isPropBlocked(PlayerSystem::p1->GetCoordinates().x, prevPos.y, true))
+                    PlayerSystem::p1->RefX() = prevPos.x;
+                if (isPropBlocked(PlayerSystem::p1->GetCoordinates().x, PlayerSystem::p1->GetCoordinates().y, true))
+                    PlayerSystem::p1->RefY() = prevPos.y;
             }
 
             //------------------------------------------------------------------
@@ -538,7 +547,7 @@ void Level1_Update()
                     customerPool,
                     PlayerSystem::p1->held.flower,
                     PlayerSystem::p1->held.modifier,
-                    PlayerSystem::p1->position);
+                    PlayerSystem::p1->GetCoordinates());
 
                 if (gold > 0)
                 {
@@ -553,11 +562,11 @@ void Level1_Update()
             // Skipped if the E press already served a customer.
             if (!ePressHandled)
                 TableSystem::TableSystem_Update(tableState, dt,
-                    PlayerSystem::p1->position, PlayerSystem::p1->held);
+                    PlayerSystem::p1->GetCoordinates(), PlayerSystem::p1->held);
 
             // Plant system (E = pick seed / plant / harvest; Q = water)
             plantSystem::PlantSystem_Update(plantState, dt,
-                PlayerSystem::p1->position, PlayerSystem::p1->held,
+                PlayerSystem::p1->GetCoordinates(), PlayerSystem::p1->held,
                 potPositions, potCount, chests, chestCount);
 
             // Customer pool — spawn new customers and advance all active ones
@@ -568,7 +577,7 @@ void Level1_Update()
             if (AEInputCheckCurr(AEVK_Q) && particleState.emitTimer <= 0.f)
             {
                 int waterIdx = plantSystem::PlantSystem_NearestPlant(
-                    plantState, PlayerSystem::p1->position);
+                    plantState, PlayerSystem::p1->GetCoordinates());
                 if (waterIdx >= 0 && plantState.can.water > 0.f)
                 {
                     ParticleSystem::EmitWater(particleState,
@@ -594,7 +603,7 @@ void Level1_Draw()
             {
                 const TextEntry& e = textSequence[currentTextIndex];
                 BasicUtilities::drawText(fontId, e.text, e.x, e.y, e.scale,
-                    e.r, e.g, e.b, alpha);
+                                         e.r, e.g, e.b, alpha);
             }
         }
     }
@@ -630,10 +639,13 @@ void Level1_Draw()
         // ── Customers — sprites before player so player appears in front ─────
         CustomerSystem::CustomerPool_Draw(customerPool, fontId);
 
+        // Draw entities
+		Entity::Draw();
+
         // ── Player + particles — draw order based on perspective ─────────────
         // Facing UP  → player's back is to the camera; particles appear below.
         // All other  → player faces the camera; particles appear above.
-        if (PlayerSystem::p1->facing == Entity::FaceDirection::UP)
+        if (PlayerSystem::p1->GetLastDirection() == Entity::FaceDirection::UP)
         {
             ParticleSystem::Draw(particleState);
             PlayerSystem::Draw();
@@ -683,6 +695,10 @@ void Level1_Draw()
         {
             for (int i = 0; i < chestCount; ++i)
             {
+                float dx = chests[i].pos.x - PlayerSystem::p1->GetCoordinates().x;
+                float dy = chests[i].pos.y - PlayerSystem::p1->GetCoordinates().y;
+                if (std::fabsf(dx) >= PLAYER_HW + PROP_COLL_HW ||
+                    std::fabsf(dy) >= PLAYER_HH + PROP_COLL_HH) continue;
                 if (chestTooltipT[i] <= 0.f) continue;
 
                 int idx = static_cast<int>(chests[i].seed);
@@ -802,9 +818,9 @@ void Level1_Draw()
 
             // Player AABB
             if (PlayerSystem::p1)
-                drawAABB(PlayerSystem::p1->position.x, PlayerSystem::p1->position.y,
-                    PLAYER_HW, PLAYER_HH,
-                    Debug::PLAYER_R, Debug::PLAYER_G, Debug::PLAYER_B);
+                drawAABB(PlayerSystem::p1->GetCoordinates().x, PlayerSystem::p1->GetCoordinates().y,
+                         PLAYER_HW, PLAYER_HH,
+                         Debug::PLAYER_R, Debug::PLAYER_G, Debug::PLAYER_B);
             // Pot AABBs
             for (int i = 0; i < potCount; ++i)
                 drawAABB(potPositions[i].x, potPositions[i].y, PROP_COLL_HW, PROP_COLL_HH,
@@ -830,9 +846,9 @@ void Level1_Draw()
                 const auto& dbgP = *PlayerSystem::p1;
 
                 const char* faceStr =
-                    dbgP.facing == Entity::FaceDirection::UP ? "UP" :
-                    dbgP.facing == Entity::FaceDirection::DOWN ? "DOWN" :
-                    dbgP.facing == Entity::FaceDirection::LEFT ? "LEFT" : "RIGHT";
+                    dbgP.GetLastDirection() == Entity::FaceDirection::UP ? "UP" :
+                    dbgP.GetLastDirection() == Entity::FaceDirection::DOWN  ? "DOWN"  :
+                    dbgP.GetLastDirection() == Entity::FaceDirection::LEFT  ? "LEFT"  : "RIGHT";
 
                 const char* heldStr =
                     dbgP.held.type == HeldItem::SEED ? "SEED" :
@@ -848,7 +864,7 @@ void Level1_Draw()
                     -790.f, -380.f, 0.7f, 1.f, 1.f, 0.f, 1.f);
 
                 sprintf_s(dbgBuf, sizeof(dbgBuf), "pos  %.1f  %.1f",
-                    dbgP.position.x, dbgP.position.y);
+                    dbgP.GetCoordinates().x, dbgP.GetCoordinates().y);
                 BasicUtilities::drawText(fontId, dbgBuf,
                     -790.f, -410.f, 0.6f, 1.f, 1.f, 1.f, 1.f);
 
@@ -871,8 +887,8 @@ void Level1_Draw()
 void Level1_Free()
 {
     AEGfxMeshFree(squareMesh); squareMesh = nullptr;
-    AEGfxMeshFree(tileMesh);   tileMesh = nullptr;
-    PlayerSystem::Free();
+    AEGfxMeshFree(tileMesh);   tileMesh   = nullptr;
+	Entity::Free();
     plantSystem::PlantSystem_Free(plantState);
     ParticleSystem::Free(particleState);
     TableSystem::TableSystem_Free(tableState);
@@ -896,6 +912,7 @@ void Level1_Unload()
     plantSystem::PlantSystem_Unload(plantState);
     TableSystem::TableSystem_Unload(tableState);
     CustomerSystem::CustomerPool_Unload(customerPool);
+	Entity::Unload();
 
     AEGfxTextureUnload(infoPanelTex);
     AEGfxTextureUnload(goldIconTex);

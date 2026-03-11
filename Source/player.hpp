@@ -10,34 +10,69 @@
 ============================================================================*/
 #pragma once
 
-#include "entity.hpp"
 #include "collision.hpp"
-#include "sprite.hpp"
+#include "utilities.hpp"
 #include "item_types.hpp"
 
-//============================================================================
-// PLAYER CLASS
-//============================================================================
-
-// Player class inherits from EntityBase class
-// [?] Player class has public and protected data members of EntityBase class
-class Player : public Entity::EntityBase
-{
-public:
-    HeldState held; // 
-};
+namespace Sprite = BasicUtilities::Sprite;
 
 //============================================================================
 // PLAYER SYSTEM
 //============================================================================
 namespace PlayerSystem
 {
+	//============================================================================
+	// PLAYER CLASS
+	//============================================================================
+
+	// Player class inherits from EntityBase class
+	// Player class has public and protected data members of EntityBase class
+	class Player : public Entity::EntityBase
+	{
+	public:
+		HeldState held; // 
+
+		/**
+	 * @brief Parameterized constructor using full EntityBase initialization.
+	 *
+	 * @details Allows explicit initialization of all inherited members
+	 *          via the full EntityBase constructor.
+	 *
+	 * @param[in] id       Unique id (0 = unassigned, will be set by AddEntity if used)
+	 * @param[in] coord    Initial world coordinates
+	 * @param[in] nextCoord Initial next/target coordinates
+	 * @param[in] currentIdx Initial grid index
+	 * @param[in] nextIdx Next grid index
+	 * @param[in] spd      Movement speed in pixels per second
+	 * @param[in] dir      Initial facing direction
+	 * @param[in] st       Initial movement state
+	 * @param[in] hold     Initial holding flag
+	 */
+		Player(ID id,
+			Entity::EntityType type,
+			AEVec2 coord,
+			AEVec2 nextCoord,
+			Entity::Index currentIdx,
+			Entity::Index nextIdx,
+			float spd,
+			Entity::FaceDirection dir,
+			Entity::MoveState st,
+			bool act = true,
+			bool AI = false,
+			bool hold = false,
+			HeldState holding = {});
+
+		~Player();
+	};
+
 	extern Player* p1;
 
 	// [!] MAKE SURE to change these if player scale changes, if not collision
 	//	   will be slightly off
 	constexpr float HALF_W = 25.0f; // Half width of player scale
 	constexpr float HALF_H = 50.0f; // Half height of player scale
+
+	void Load();
 
 	/******************************************************************************/
 	/*
@@ -71,5 +106,6 @@ namespace PlayerSystem
 	/******************************************************************************/
 	void Free();
 
+	void Unload();
 } 
 

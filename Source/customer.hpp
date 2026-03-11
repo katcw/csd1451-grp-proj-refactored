@@ -32,8 +32,10 @@
 
 #include "AEEngine.h"
 #include "entity.hpp"
-#include "sprite.hpp"
+#include "utilities.hpp"
 #include "item_types.hpp"
+
+namespace Sprite = BasicUtilities::Sprite;
 
 // Customer patience, change value to modify customer's patience level
 namespace CustomerSystem { constexpr float PATIENCE_MAX = 30.f; }

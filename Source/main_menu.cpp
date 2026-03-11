@@ -14,8 +14,9 @@
 #include "main_menu.hpp"
 #include "game_state_manager.hpp"
 #include "game_state_list.hpp"
-#include "sprite.hpp"
 #include "utilities.hpp"
+
+namespace Sprite = BasicUtilities::Sprite;
 
 namespace
 {
@@ -145,7 +146,7 @@ void MainMenu_Update()
 	AEMtx33Scale(&miniButtonScale, tutorial.width * tutorial.currentScale, tutorial.height * tutorial.currentScale);
 	AEMtx33Concat(&tutorialTransform, &tutorialTranslate, &miniButtonScale);
 
-	Sprite::UpdateAnimation(characterSpriteAnimState, characterSprite.metas[idleTextureSlot], idleFacingTag);
+	Sprite::UpdateAnimation(characterSpriteAnimState, characterSprite.jsonList[idleTextureSlot], idleFacingTag);
 
 	// [!] RUNE TEST FOR HH
 	//if (AEInputCheckTriggered(AEVK_M))
@@ -159,10 +160,10 @@ void MainMenu_Draw()
 	AEGfxSetBackgroundColor(0.85f, 0.84f, 0.80f);
 	AEGfxSetRenderMode(AE_GFX_RM_TEXTURE);
 
-	if (spriteMesh && characterSprite.textures[idleTextureSlot])
+	if (spriteMesh && characterSprite.textureList[idleTextureSlot])
 	{
 		Sprite::DrawAnimation(spriteMesh,
-			characterSprite.textures[idleTextureSlot],
+			characterSprite.textureList[idleTextureSlot],
 			characterSpriteAnimState,
 			menuCharacterPosition,
 			menuCharacterScale);

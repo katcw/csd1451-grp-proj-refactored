@@ -59,7 +59,7 @@ namespace RuneMinigame
 	 */
 	struct Rune
 	{
-		AEVec2 position;         ///< World position of the rune
+		AEVec2 position{0, 0};         ///< World position of the rune
 		bool touched = false;    ///< Whether the rune has been touched by the player
 	};
 

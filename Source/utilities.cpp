@@ -16,6 +16,14 @@
 #include "AEEngine.h"
 #include "AEGraphics.h"
 #include "AEMtx33.h"
+#include "utilities.hpp"
+#include "entity.hpp"
+
+// Alias for nlohmann::json
+using json = nlohmann::json;
+
+// DEBUG FLAG
+static const bool debug = false;
 
 namespace BasicUtilities
 {
@@ -35,7 +43,7 @@ namespace BasicUtilities
         return returnedTexture;
     }
 
-    AEGfxVertexList* createSquareMesh(float uvHeight = 1.f, float uvWidth = 1.f, unsigned int color = 0xFFFFFFFF)
+    AEGfxVertexList* createSquareMesh(float uvHeight, float uvWidth, unsigned int color)
     {
         AEGfxMeshStart();
         AEGfxTriAdd(
@@ -226,4 +234,457 @@ namespace BasicUtilities
         AEGfxMeshDraw(mesh, AE_GFX_MDM_TRIANGLES);
     }
 
+    /**
+     * @brief Loads and parses a JSON file from disk.
+     *
+     * Opens the specified file, parses its contents as JSON,
+     * and returns the parsed object. Returns an empty JSON
+     * object if the file cannot be opened.
+     *
+     * @param filename Path to JSON file (relative or absolute)
+     * @return Parsed JSON object, or empty object on failure
+     *
+     * @warning Prints error message to stderr if file cannot be opened
+     */
+    json LoadJsonFile(const char* filename)
+    {
+        std::ifstream file(filename);
+
+        if (!file.is_open())
+        {
+            std::cerr << "Error: Could not open file " << filename << std::endl;
+            return json{};
+        }
+
+        json data;
+        file >> data;
+
+        return data;
+    }
+
+	namespace Sprite
+    {
+        /**
+             * @brief Loads all sprite metadata from Aseprite JSON export.
+             *
+             * Parses the JSON file exported from Aseprite and extracts:
+             * - Frame data (position, size, duration)
+             * - Animation tags (name, frame range, direction)
+             * - Spritesheet dimensions (width, height)
+             * - Image filename
+             *
+             * @param spriteData Parsed JSON object from Aseprite export
+             * @return JMeta struct containing all sprite metadata
+             *
+             * @note Expects JSON format from Aseprite "Export Sprite Sheet" with:
+             *       - "frames" array
+             *       - "meta.frameTags" array
+             *       - "meta.size" object with "w" and "h"
+             */
+        JMeta LoadMeta(const json& spriteData)
+        {
+            JMeta meta;
+
+            // ----------------------------------------------------------------
+            // Validate JSON structure
+            // ----------------------------------------------------------------
+            if (spriteData.empty() || !spriteData.contains("frames") || !spriteData.contains("meta"))
+            {
+                std::cerr << "Error: Invalid or empty JSON data\n";
+                return meta;
+            }
+
+            const auto& framesData = spriteData["frames"];
+            const auto& metaObj = spriteData["meta"];
+
+            // ----------------------------------------------------------------
+            // Load frame data from "frames" (supports Array and Hash formats)
+            // ----------------------------------------------------------------
+            if (framesData.is_array())
+            {
+                for (const auto& frame : framesData)
+                {
+                    JFrame f;
+                    if (frame.contains("filename")) f.filename = frame["filename"];
+                    if (frame.contains("frame"))
+                    {
+                        const auto& r = frame["frame"];
+                        if (r.contains("x")) f.x = r["x"];
+                        if (r.contains("y")) f.y = r["y"];
+                        if (r.contains("w")) f.width = r["w"];
+                        if (r.contains("h")) f.height = r["h"];
+                    }
+                    if (frame.contains("duration")) f.duration = frame["duration"];
+                    meta.frames.push_back(f);
+                }
+            }
+            else if (framesData.is_object())
+            {
+                for (auto it = framesData.begin(); it != framesData.end(); ++it)
+                {
+                    JFrame f;
+                    f.filename = it.key();
+                    const auto& frame = it.value();
+                    if (frame.contains("frame"))
+                    {
+                        const auto& r = frame["frame"];
+                        if (r.contains("x")) f.x = r["x"];
+                        if (r.contains("y")) f.y = r["y"];
+                        if (r.contains("w")) f.width = r["w"];
+                        if (r.contains("h")) f.height = r["h"];
+                    }
+                    if (frame.contains("duration")) f.duration = frame["duration"];
+                    meta.frames.push_back(f);
+                }
+            }
+
+            // ----------------------------------------------------------------
+            // Load animation tags from "meta.frameTags" array
+            // ----------------------------------------------------------------
+            if (metaObj.contains("frameTags"))
+            {
+                for (const auto& tag : metaObj["frameTags"])
+                {
+                    JAnimationTag t;
+                    if (tag.contains("name"))      t.name = tag["name"];
+                    if (tag.contains("from"))      t.from = tag["from"];
+                    if (tag.contains("to"))        t.to = tag["to"];
+                    if (tag.contains("direction")) t.direction = tag["direction"];
+                    meta.frameTags.push_back(t);
+                }
+            }
+
+            // ----------------------------------------------------------------
+            // Load spritesheet dimensions from "meta.size"
+            // ----------------------------------------------------------------
+            if (metaObj.contains("size"))
+            {
+                const auto& size = metaObj["size"];
+                if (size.contains("w")) meta.sheetWidth = size["w"];
+                if (size.contains("h")) meta.sheetHeight = size["h"];
+            }
+
+            // ----------------------------------------------------------------
+            // Load image filename if available
+            // ----------------------------------------------------------------
+            if (metaObj.contains("image"))
+            {
+                meta.imageFile = metaObj["image"];
+            }
+
+            return meta;
+        }
+
+        // Rendering
+        void UpdateAnimation(AnimationState& state, u32 row, float frameDuration, u32 rows, u32 cols)
+        {
+            float uvWidth = 1.0f / cols;
+            float uvHeight = 1.0f / rows;
+
+            // ----------------------------------------------------------------
+            // Accumulate frame time
+            // ----------------------------------------------------------------
+            state.timer += static_cast<float>(AEFrameRateControllerGetFrameTime());
+
+            // ----------------------------------------------------------------
+            // Advance frame when timer exceeds duration
+            // ----------------------------------------------------------------
+            if (state.timer >= frameDuration)
+            {
+                state.timer = 0.0f;
+                state.currentIndex = (state.currentIndex + 1) % cols;
+                state.uvOffsetX = uvWidth * state.currentIndex;
+                state.uvOffsetY = uvHeight * row;
+            }
+        }
+
+        void UpdateAnimation(AnimationState& state,
+            JMeta meta,
+            u32 tagIndex,
+            float customDuration)
+        {
+            // ----------------------------------------------------------------
+            // Validate input data
+            // ----------------------------------------------------------------
+            if (meta.frames.empty() || tagIndex >= meta.frameTags.size())
+            {
+                return;
+            }
+
+            const JAnimationTag& tag = meta.frameTags[tagIndex];
+
+            // ----------------------------------------------------------------
+            // Accumulate frame time
+            // ----------------------------------------------------------------
+            state.timer += static_cast<float>(AEFrameRateControllerGetFrameTime());
+
+            // ----------------------------------------------------------------
+            // Clamp currentIndex to tag range and initialize UV
+            // ----------------------------------------------------------------
+            if (state.currentIndex < static_cast<u32>(tag.from) ||
+                state.currentIndex > static_cast<u32>(tag.to))
+            {
+                state.currentIndex = static_cast<u32>(tag.from);
+
+                const JFrame& f = meta.frames[state.currentIndex];
+                state.uvOffsetX = f.x / static_cast<float>(meta.sheetWidth);
+                state.uvOffsetY = f.y / static_cast<float>(meta.sheetHeight);
+            }
+
+            // ----------------------------------------------------------------
+            // Calculate frame duration (custom or from JSON)
+            // ----------------------------------------------------------------
+            float frameDuration = customDuration > 0.0f
+                ? customDuration
+                : meta.frames[state.currentIndex].duration / 1000.0f;
+
+            // ----------------------------------------------------------------
+            // Advance frame when timer exceeds duration
+            // ----------------------------------------------------------------
+            if (state.timer >= frameDuration)
+            {
+                state.timer = 0.0f;
+                state.currentIndex++;
+
+                // Loop back to start of tag range
+                if (state.currentIndex > static_cast<u32>(tag.to))
+                {
+                    state.currentIndex = static_cast<u32>(tag.from);
+                }
+
+                // Calculate UV using frame position from JSON
+                const JFrame& f = meta.frames[state.currentIndex];
+                state.uvOffsetX = f.x / static_cast<float>(meta.sheetWidth);
+                state.uvOffsetY = f.y / static_cast<float>(meta.sheetHeight);
+
+                if (debug)
+                {
+                    std::cout << "JSON Anim: tag=" << tagIndex
+                        << " frame=" << state.currentIndex
+                        << " pos=(" << f.x << "," << f.y << ")"
+                        << " uvX=" << state.uvOffsetX
+                        << " uvY=" << state.uvOffsetY << "\n";
+                }
+            }
+        }
+
+        void DrawAnimation(AEGfxVertexList* mesh, AEGfxTexture* texture,
+            const AnimationState& state,
+            AEVec2 position, AEVec2 scale)
+        {
+            // ----------------------------------------------------------------
+            // Validate pointers
+            // ----------------------------------------------------------------
+            if (!texture || !mesh)
+            {
+                if (debug)
+                {
+                    std::cerr << "[WARN] Draw_Animation: null "
+                        << (!mesh ? "mesh" : "texture") << "\n";
+                }
+                return;
+            }
+
+            // ----------------------------------------------------------------
+            // Set up render state
+            // ----------------------------------------------------------------
+            AEGfxSetRenderMode(AE_GFX_RM_TEXTURE);
+            //AEGfxSetColorToMultiply(1.0f, 1.0f, 1.0f, 1.0f);
+            //AEGfxSetColorToAdd(0.0f, 0.0f, 0.0f, 0.0f);
+            AEGfxSetBlendMode(AE_GFX_BM_BLEND);
+            AEGfxSetTransparency(1.0f);
+
+            // ----------------------------------------------------------------
+            // Apply texture with UV offset
+            // ----------------------------------------------------------------
+            AEGfxTextureSet(texture, state.uvOffsetX, state.uvOffsetY);
+
+            // ----------------------------------------------------------------
+            // Build transformation matrix (scale then translate)
+            // ----------------------------------------------------------------
+            AEMtx33 scaleMtx = { 0 };
+            AEMtx33 translate = { 0 };
+            AEMtx33 transform = { 0 };
+
+            AEMtx33Scale(&scaleMtx, scale.x, scale.y);
+            AEMtx33Trans(&translate, position.x, position.y);
+            AEMtx33Concat(&transform, &translate, &scaleMtx);
+            AEGfxSetTransform(transform.m);
+
+            // ----------------------------------------------------------------
+            // Draw mesh
+            // ----------------------------------------------------------------
+            AEGfxMeshDraw(mesh, AE_GFX_MDM_TRIANGLES);
+
+            // ----------------------------------------------------------------
+            // Debug output
+            // ----------------------------------------------------------------
+            if (debug)
+            {
+                std::cout << "Draw_Animation: pos(" << position.x << ", " << position.y << ") "
+                    << "scale(" << scale.x << ", " << scale.y << ") "
+                    << "uv(" << state.uvOffsetX << ", " << state.uvOffsetY << ")\n";
+                AEGfxMeshDraw(mesh, AE_GFX_MDM_LINES_STRIP);
+            }
+        }
+
+        void DrawSprite(AEGfxVertexList* mesh, AEGfxTexture* texture,
+            AEVec2 position, AEVec2 scale)
+        {
+            // ----------------------------------------------------------------
+            // Set up render state
+            // ----------------------------------------------------------------
+            AEGfxSetRenderMode(AE_GFX_RM_TEXTURE);
+            AEGfxSetColorToMultiply(1.0f, 1.0f, 1.0f, 1.0f);
+            AEGfxSetColorToAdd(0.0f, 0.0f, 0.0f, 0.0f);
+            AEGfxSetBlendMode(AE_GFX_BM_BLEND);
+            AEGfxSetTransparency(1.0f);
+
+            // ----------------------------------------------------------------
+            // Apply texture with no UV offset
+            // ----------------------------------------------------------------
+            AEGfxTextureSet(texture, 0.0f, 0.0f);
+
+            // ----------------------------------------------------------------
+            // Build transformation matrix (scale then translate)
+            // ----------------------------------------------------------------
+            AEMtx33 scaleMtx = { 0 };
+            AEMtx33 translate = { 0 };
+            AEMtx33 transform = { 0 };
+
+            AEMtx33Scale(&scaleMtx, scale.x, scale.y);
+            AEMtx33Trans(&translate, position.x, position.y);
+            AEMtx33Concat(&transform, &translate, &scaleMtx);
+            AEGfxSetTransform(transform.m);
+
+            // ----------------------------------------------------------------
+            // Draw mesh
+            // ----------------------------------------------------------------
+            AEGfxMeshDraw(mesh, AE_GFX_MDM_TRIANGLES);
+        }
+
+        bool LoadEntry(SpriteData& list, u32 index, const char* texturePath, const char* jsonPath)
+        {
+            if (index >= Sprite::MAX_SPRITE_ANIMS)
+            {
+                if (debug) std::cerr << "[ERROR] LoadSpriteEntry: index out of range: " << index << "\n";
+                return false;
+            }
+
+            // Load texture
+            list.textureList[index] = loadTexture(texturePath);
+            if (debug)
+            {
+                std::cout << "[DEBUG] Texture[" << index << "] "
+                    << (list.textureList[index] ? "loaded" : "FAILED")
+                    << " : " << texturePath << "\n";
+            }
+
+            if (!list.textureList[index])
+            {
+                std::cerr << "[ERROR] Failed to load texture: " << texturePath << "\n";
+                return false;
+            }
+
+            // Load JSON
+            json j = LoadJsonFile(jsonPath);
+            if (j.empty())
+            {
+                std::cerr << "[ERROR] Failed to load JSON: " << jsonPath << "\n";
+                return false;
+            }
+
+            // Parse meta
+            list.jsonList[index] = LoadMeta(j);
+            if (list.jsonList[index].frames.empty())
+            {
+                std::cerr << "[ERROR] Parsed meta frames empty for " << jsonPath << "\n";
+                return false;
+            }
+            else if (debug)
+            {
+                std::cout << "[DEBUG] Parsed " << jsonPath << " frames: "
+                    << list.jsonList[index].frames.size() << "\n";
+            }
+            list.count++;
+            return true;
+        }
+
+        void LoadEntry4(const char* name, SpriteData& list)
+        {
+            char texturePath[256];
+            char jsonPath[256];
+            list.count = 0;
+            for (u32 i = 0; i < 4; ++i)
+            {
+                const char* suffix = nullptr;
+                switch (i)
+                {
+                case 0: suffix = "_Idle"; break;
+                case 1: suffix = "_Walking"; break;
+                case 2: suffix = "_Idle_Carry"; break;
+                case 3: suffix = "_Walking_Carry"; break;
+                default: suffix = ""; break;
+                }
+                snprintf(texturePath, sizeof(texturePath), "Assets/character-assets/%s%s.png", name, suffix);
+                snprintf(jsonPath, sizeof(jsonPath), "Assets/Character-assets/%s%s.json", name, suffix);
+                if (!LoadEntry(list, i, texturePath, jsonPath))
+                {
+                    std::cerr << "[ERROR] Failed to load sprite entry " << i << " for " << name << suffix << "\n";
+                    // Ensure slot is explicitly null so Get_Texture_For_State can skip it
+                    list.textureList[i] = nullptr;
+                }
+                // Always increment count so indices stay aligned:
+                // slot 0=idle, 1=walk, 2=idle_carry, 3=walk_carry
+                list.count++;
+            }
+
+            if (debug)
+            {
+                std::cout << "[DEBUG] LoadSpriteEntry4('" << name << "'): count=" << list.count << "\n";
+                for (u32 i = 0; i < list.count; ++i)
+                {
+                    std::cout << "  [" << i << "] tex=" << (list.textureList[i] ? "OK" : "NULL")
+                        << " frames=" << list.jsonList[i].frames.size() << "\n";
+                }
+            }
+        }
+
+        AEGfxTexture* GetTextureForState(Entity::MoveState state,
+            bool isHolding,
+            AEGfxTexture* animArray[])
+        {
+            // Indices: [0]=idle, [1]=walk, [2]=idleHold, [3]=walkHold
+            AEGfxTexture* result = nullptr;
+
+            switch (state)
+            {
+            case Entity::MoveState::DEFAULT:
+            case Entity::MoveState::IDLE:
+                if (isHolding && animArray[2] != nullptr)
+                    result = animArray[2];
+                else
+                    result = animArray[0];
+                break;
+
+            case Entity::MoveState::WALKING:
+            case Entity::MoveState::RUNNING:
+                if (isHolding && animArray[3] != nullptr)
+                    result = animArray[3];
+                else
+                    result = animArray[1];
+                break;
+
+            default:
+                result = animArray[0];
+                break;
+            }
+
+            // Final fallback: if the chosen slot is null, try idle, then walk
+            if (!result) result = animArray[0];
+            if (!result) result = animArray[1];
+
+            return result;
+        }
+    }
 }
