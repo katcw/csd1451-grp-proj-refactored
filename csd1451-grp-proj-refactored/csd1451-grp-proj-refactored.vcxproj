@@ -17,6 +17,7 @@
     <ClCompile Include="..\source\game_state_manager.cpp" />
     <ClCompile Include="..\source\main.cpp" />
     <ClCompile Include="..\Source\main_menu.cpp" />
+    <ClCompile Include="..\Source\merchant.cpp" />
     <ClCompile Include="..\Source\player.cpp" />
     <ClCompile Include="..\Source\gold.cpp" />
     <ClCompile Include="..\Source\particle_system.cpp" />
@@ -38,6 +39,7 @@
     <ClInclude Include="..\source\game_state_list.hpp" />
     <ClInclude Include="..\source\game_state_manager.hpp" />
     <ClInclude Include="..\Source\main_menu.hpp" />
+    <ClInclude Include="..\Source\merchant.hpp" />
     <ClInclude Include="..\Source\player.hpp" />
     <ClInclude Include="..\Source\gold.hpp" />
     <ClInclude Include="..\Source\item_types.hpp" />
