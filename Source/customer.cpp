@@ -220,6 +220,24 @@ namespace
             }
         }
 
+		// -- Patience penalty (WRONG ORDER) — red flash over the customer sprite --
+        
+        if (c.receiveOrderResult == ReceiveOrder::WRONG_ORDER) {
+			// Only visual effect, do NOT modify patience here!
+            const float flashAlpha = RandRange(0.0f, 0.55f);
+            AEGfxSetRenderMode(AE_GFX_RM_COLOR);
+            AEGfxSetBlendMode(AE_GFX_BM_BLEND);
+            AEGfxSetTransparency(flashAlpha);
+            AEGfxSetColorToMultiply(1.f, 0.f, 0.f, 1.f);
+            AEGfxSetColorToAdd(0.f, 0.f, 0.f, 0.f);
+            AEMtx33 sclMtx{}, trsMtx{}, mtx{};
+            AEMtx33Scale(&sclMtx, 120.f, 120.f);
+            AEMtx33Trans(&trsMtx, c.position.x, c.position.y);
+            AEMtx33Concat(&mtx, &trsMtx, &sclMtx);
+            AEGfxSetTransform(mtx.m);
+            AEGfxMeshDraw(bubbleMesh, AE_GFX_MDM_TRIANGLES);
+        }
+
         // ── Order bubble (WAITING + valid order only) ────────────────────────
         if (c.state != CustomerState::WAITING || c.order == FlowerType::NONE) return;
 
@@ -390,6 +408,7 @@ namespace CustomerSystem
         Customer& c = s.customer;
         c.stateTimer += dt;
 
+
         if (c.state == CustomerState::ARRIVING)
         {
             if (StepToward(c, s.targetPos, dt))
@@ -403,6 +422,7 @@ namespace CustomerSystem
         {
             c.moveState = Entity::MoveState::IDLE;  // stay idle while waiting
             c.patience -= dt;
+
             if (c.patience <= 0.f)
             {
                 c.patience       = 0.f;
@@ -487,6 +507,7 @@ namespace CustomerSystem
         Customer& c = sl.customer;
         c.stateTimer += dt;
 
+
         if (c.state == CustomerState::ARRIVING)
         {
             if (StepToward(c, sl.targetPos, dt))
@@ -500,13 +521,24 @@ namespace CustomerSystem
         {
             c.moveState = Entity::MoveState::IDLE;  // stay idle while waiting
             c.patience -= dt;
+
+            // Apply patience penalty for wrong order
+            if (c.receiveOrderResult == ReceiveOrder::WRONG_ORDER)
+            {
+                c.patience -= 5.f;
+                c.receiveOrderResult = ReceiveOrder::NO_ORDER;
+				
+                std::cerr << "Customer received wrong order! Patience left with " << c.patience << " seconds.\n";
+
+            }
+            
             if (c.patience <= 0.f)
             {
-                c.patience       = 0.f;
+                c.patience = 0.f;
                 c.patienceRanOut = true;
-                c.moveState      = Entity::MoveState::WALKING;
-                c.state          = CustomerState::LEAVING;
-                c.stateTimer     = 0.f;
+                c.moveState = Entity::MoveState::WALKING;
+                c.state = CustomerState::LEAVING;
+                c.stateTimer = 0.f;
             }
         }
         else if (c.state == CustomerState::LEAVING)
@@ -705,7 +737,7 @@ namespace CustomerSystem
     //   Returns -1 if no WAITING customer is within SERVE_RADIUS.
     //========================================================================
     int CustomerPool_TryServe(PoolState& p, FlowerType type, FlowerModifier mod,
-                              AEVec2 playerPos)
+                          AEVec2 playerPos)
     {
         constexpr float SERVE_RADIUS = 120.f;  // [TUNE] world-unit interaction reach
 
@@ -733,9 +765,18 @@ namespace CustomerSystem
 
         PoolState::Slot& sl = p.slots[bestSlot];
 
-        // Wrong flower or wrong modifier — customer stays, patience keeps draining
+        // Wrong flower or wrong modifier — mark the wrong-order visual/penalty but DO NOT
+        // start leaving the customer here.
+        //
+        // NOTE: Previous behaviour returned 0 for a wrong order. Change this to return
+        // -2 to give callers an unambiguous signal that a wrong order occurred so they
+        // can reset player sprite/animation (stop "holding" animation and switch back to
+        // normal walking). Existing callers should be updated to handle -2.
         if (type != sl.customer.order || mod != sl.customer.orderModifier)
-            return 0;
+        {
+            sl.customer.receiveOrderResult = ReceiveOrder::WRONG_ORDER;
+            return -2;
+        }
 
         // Correct match — serve the customer and begin their LEAVING walk
         sl.customer.servedSuccessfully = true;

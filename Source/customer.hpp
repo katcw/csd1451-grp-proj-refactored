@@ -40,12 +40,15 @@ namespace CustomerSystem { constexpr float PATIENCE_MAX = 30.f; }
 
 enum class CustomerState { ARRIVING, WAITING, LEAVING };
 
+enum class ReceiveOrder { NO_ORDER, CORRECT_ORDER, WRONG_ORDER };
+
 class Customer : public Entity::EntityBase
 {
 public:
     CustomerState          state              = CustomerState::ARRIVING;
     FlowerType             order              = FlowerType::NONE;
     FlowerModifier         orderModifier      = FlowerModifier::NONE;  // required modifier (NONE = plain)
+	ReceiveOrder           receiveOrderResult = ReceiveOrder::NO_ORDER;  // result of player's attempt to serve this customer
     float                  stateTimer         = 0.f;
     Sprite::AnimationState animState          = {};
     float                  patience           = CustomerSystem::PATIENCE_MAX;

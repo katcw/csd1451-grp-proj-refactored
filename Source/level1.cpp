@@ -842,7 +842,10 @@ void Level1_Free()
 
 void Level1_Unload()
 {
-    AEGfxTextureUnload(uiCardTexture);
+    if (uiCardTexture) {
+        AEGfxTextureUnload(uiCardTexture);
+        uiCardTexture = nullptr;
+    }
     AEGfxDestroyFont(fontId);
 
     AEGfxTextureUnload(floorOneTex);
