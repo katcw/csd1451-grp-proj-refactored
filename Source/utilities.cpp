@@ -35,7 +35,7 @@ namespace BasicUtilities
         return returnedTexture;
     }
 
-    AEGfxVertexList* createSquareMesh(float uvHeight, float uvWidth, unsigned int color)
+    AEGfxVertexList* createSquareMesh(float uvHeight = 1.f, float uvWidth = 1.f, unsigned int color = 0xFFFFFFFF)
     {
         AEGfxMeshStart();
         AEGfxTriAdd(

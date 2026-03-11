@@ -17,6 +17,7 @@
 #include "main_menu.hpp"
 #include "tutorial.hpp"
 #include "level1.hpp"
+#include "rune_minigame.hpp"
 
 int currentState{}, previousState{}, nextState{};
 FP fpLoad = nullptr, fpInitialise = nullptr, fpUpdate = nullptr,
@@ -76,6 +77,14 @@ void GSM_Update()
 	case GS_CREDITS:
 		break;
 	case GS_EXIT:
+		break;
+	case GS_RUNE_TEST:
+		fpLoad       = RuneMinigame::Load;
+		fpInitialise = RuneMinigame::Init;
+		fpUpdate     = RuneMinigame::Update;
+		fpDraw       = RuneMinigame::Draw;
+		fpFree       = RuneMinigame::Free;
+		fpUnload     = RuneMinigame::Unload;
 		break;
 	case GS_PLAY:
 		break;

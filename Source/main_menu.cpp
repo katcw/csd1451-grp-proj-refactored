@@ -97,6 +97,11 @@ void MainMenu_Update()
 
 	AEMtx33Scale(&buttonScale, 200.0f * exitButton.currentScale, 200.0f * exitButton.currentScale);
 	AEMtx33Concat(&exitButtonTransform, &exitButtonTranslate, &buttonScale);
+
+	if (AEInputCheckTriggered(AEVK_M))
+	{
+		nextState = GS_RUNE_TEST;
+	}
 }
 
 void MainMenu_Draw()
