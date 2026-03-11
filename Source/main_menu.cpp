@@ -77,6 +77,12 @@ void MainMenu_Update()
 		nextState = GS_TUTORIAL;
 	}
 
+	if (creditsButton.isClicked(worldMouseX, worldMouseY) &&
+		AEInputCheckTriggered(AEVK_LBUTTON))
+	{
+		nextState = GS_LEVEL1;
+	}
+
 	if (exitButton.isClicked(worldMouseX, worldMouseY) &&
 		AEInputCheckTriggered(AEVK_LBUTTON))
 	{
@@ -95,6 +101,8 @@ void MainMenu_Update()
 
 void MainMenu_Draw()
 {
+	AEGfxSetBackgroundColor(0.85f, 0.84f, 0.80f);
+
 	AEGfxSetRenderMode(AE_GFX_RM_TEXTURE);
 
 	AEGfxSetColorToMultiply(1.0f, 1.0f, 1.0f, 1.0f);

@@ -30,7 +30,9 @@ namespace Debug
     constexpr float PLAYER_R   = 1.f, PLAYER_G   = 1.f, PLAYER_B   = 0.f;  // Yellow
     constexpr float POT_R      = 1.f, POT_G      = 1.f, POT_B      = 0.f;  // Yellow
     constexpr float CHEST_R    = 0.f, CHEST_G    = 1.f, CHEST_B    = 0.f;  // Green
-    constexpr float CUSTOMER_R = 0.f, CUSTOMER_G = 1.f, CUSTOMER_B = 1.f;  // Cyan
+    constexpr float CUSTOMER_R     = 0.f,  CUSTOMER_G     = 1.f,  CUSTOMER_B     = 1.f;  // Cyan
+    constexpr float RUNE_TABLE_R   = 0.6f, RUNE_TABLE_G   = 0.4f, RUNE_TABLE_B   = 1.f;  // Purple
+    constexpr float POISON_TABLE_R = 0.2f, POISON_TABLE_G = 0.8f, POISON_TABLE_B = 0.2f; // Lime
 
     // Bounding box transparency
     constexpr float HITBOX_ALPHA = 0.35f;

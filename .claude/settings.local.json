@@ -42,7 +42,24 @@
       "Bash(findstr /n \"tutorial\\\\|plant_system\\\\|player\\\\|particle\" \"C:\\\\Users\\\\KaTCh\\\\OneDrive\\\\Documents\\\\school stuffs here!\\\\CSD1451 software engineering project 2\\\\csd1451-grp-proj-refactored\\\\csd1451-grp-proj-refactored\\\\csd1451-grp-proj-refactored.vcxproj\")",
       "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\KaTCh\\\\build_check.ps1\")",
       "Bash(powershell -ExecutionPolicy Bypass -Command \"& ''C:\\\\Users\\\\KaTCh\\\\build_check.ps1''\")",
-      "Bash(echo \"EXIT:$LASTEXITCODE\")"
+      "Bash(echo \"EXIT:$LASTEXITCODE\")",
+      "Bash(echo \"exit:$LASTEXITCODE\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\KaTCh\\\\get_png_sizes.ps1\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\KaTCh\\\\build_check.ps1\")",
+      "Bash(\"C:\\\\Users\\\\KaTCh\\\\build_out.txt\")",
+      "Bash(powershell -ExecutionPolicy Bypass -Command \"& ''C:\\\\Program Files\\\\Microsoft Visual Studio\\\\2022\\\\Community\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe'' ''C:\\\\Users\\\\KaTCh\\\\OneDrive\\\\Documents\\\\school stuffs here!\\\\CSD1451 software engineering project 2\\\\csd1451-grp-proj-refactored\\\\csd1451-grp-proj-refactored.sln'' /p:Configuration=Debug /p:Platform=x64 /t:Build /v:minimal 2>&1 | tail -30\")",
+      "Bash(Select-Object -Last 30)",
+      "Bash(\")",
+      "Bash(\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\2022\\\\Community\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe\" csd1451-grp-proj-refactored.sln /p:Configuration=Debug /p:Platform=x64 /t:Build /v:minimal)",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(ls \"C:\\\\Users\\\\KaTCh\\\\OneDrive\\\\Documents\\\\school stuffs here!\\\\CSD1451 software engineering project 2\\\\csd1451-grp-proj-refactored\\\\Assets\\\\flower-assets\"\" && ls \"C:UsersKaTChOneDriveDocumentsschool stuffs here!CSD1451 software engineering project 2csd1451-grp-proj-refactoredAssets\"\")",
+      "Bash(MSBuild \"csd1451-grp-proj-refactored.sln\" /p:Configuration=Debug /p:Platform=x64 /t:Build /v:minimal)",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -Command \"& MSBuild ''C:\\\\Users\\\\KaTCh\\\\OneDrive\\\\Documents\\\\school stuffs here!\\\\CSD1451 software engineering project 2\\\\csd1451-grp-proj-refactored\\\\csd1451-grp-proj-refactored.sln'' /p:Configuration=Debug /p:Platform=x64 /t:Build /v:minimal 2>&1\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -Command \"& ''C:\\\\Program Files\\\\Microsoft Visual Studio\\\\2022\\\\Community\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe'' ''C:\\\\Users\\\\KaTCh\\\\OneDrive\\\\Documents\\\\school stuffs here!\\\\CSD1451 software engineering project 2\\\\csd1451-grp-proj-refactored\\\\csd1451-grp-proj-refactored.sln'' /p:Configuration=Debug /p:Platform=x64 /t:Build /v:minimal 2>&1 | Select-Object -Last 20 | Out-String\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -Command \"& ''C:\\\\Users\\\\KaTCh\\\\build_check.ps1''\")",
+      "Bash(\"C:\\\\Users\\\\KaTCh\\\\build_out2.txt\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -Command \":*)",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\KaTCh\\\\run_build.ps1\")"
     ]
   }
 }

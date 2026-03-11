@@ -16,6 +16,7 @@
 #include "splash_state.hpp"
 #include "main_menu.hpp"
 #include "tutorial.hpp"
+#include "level1.hpp"
 
 int currentState{}, previousState{}, nextState{};
 FP fpLoad = nullptr, fpInitialise = nullptr, fpUpdate = nullptr,
@@ -63,6 +64,14 @@ void GSM_Update()
 		fpDraw       = Tutorial_Draw;
 		fpFree       = Tutorial_Free;
 		fpUnload     = Tutorial_Unload;
+		break;
+	case GS_LEVEL1:
+		fpLoad       = Level1_Load;
+		fpInitialise = Level1_Initialise;
+		fpUpdate     = Level1_Update;
+		fpDraw       = Level1_Draw;
+		fpFree       = Level1_Free;
+		fpUnload     = Level1_Unload;
 		break;
 	case GS_CREDITS:
 		break;

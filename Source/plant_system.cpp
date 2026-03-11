@@ -86,11 +86,20 @@ namespace plantSystem
         s.potPlantedTex = BasicUtilities::loadTexture("Assets/pot_planted.png");
         s.chestTex      = BasicUtilities::loadTexture("Assets/chest.png");
 
-        // Placeholder textures until real plant-stage art is ready
-        s.stageTex[STAGE_SEED]        = BasicUtilities::loadTexture("Assets/prototype_exit_button.png");
-        s.stageTex[STAGE_SPROUT]      = BasicUtilities::loadTexture("Assets/prototype_exit_button.png");
-        s.stageTex[STAGE_GROWING]     = BasicUtilities::loadTexture("Assets/prototype_play_button.png");
-        s.stageTex[STAGE_FULLY_GROWN] = BasicUtilities::loadTexture("Assets/prototype_credits_button.png");
+        // Plant stage sprites (drawn on top of pot_planted while the plant is active)
+        s.stageTex[STAGE_SEED]        = BasicUtilities::loadTexture("Assets/flower-assets/plant_seed.png");
+        s.stageTex[STAGE_SPROUT]      = BasicUtilities::loadTexture("Assets/flower-assets/plant_growing.png");
+        s.stageTex[STAGE_GROWING]     = s.stageTex[STAGE_SPROUT];  // shared pointer — do NOT free twice
+        s.stageTex[STAGE_FULLY_GROWN] = nullptr;                   // per-type via grownTex[]
+
+        // Per-flower fully-grown sprites (index = (int)SeedType for direct lookup)
+        s.grownTex[0]                        = nullptr;  // SeedType::NONE — unused
+        s.grownTex[(int)SeedType::LILY]      = BasicUtilities::loadTexture("Assets/flower-assets/plant_grown_1.png");
+        s.grownTex[(int)SeedType::ORCHID]    = BasicUtilities::loadTexture("Assets/flower-assets/plant_grown_2.png");
+        s.grownTex[(int)SeedType::DAISY]     = BasicUtilities::loadTexture("Assets/flower-assets/plant_grown_3.png");
+        s.grownTex[(int)SeedType::ROSE]      = BasicUtilities::loadTexture("Assets/flower-assets/plant_grown_4.png");
+        s.grownTex[(int)SeedType::SUNFLOWER] = BasicUtilities::loadTexture("Assets/flower-assets/plant_grown_5.png");
+        s.grownTex[(int)SeedType::TULIP]     = BasicUtilities::loadTexture("Assets/flower-assets/plant_grown_6.png");
     }
 
     void PlantSystem_Init(State& s, const AEVec2* potPositions, int potCount)
@@ -138,7 +147,8 @@ namespace plantSystem
                 if (!s.plants[i].active || s.plants[i].stage != STAGE_FULLY_GROWN) continue;
                 float dx = s.plants[i].pos.x - playerPos.x;
                 float dy = s.plants[i].pos.y - playerPos.y;
-                if (std::sqrt(dx * dx + dy * dy) < INTERACT_RADIUS)
+                if (std::fabsf(dx) < (PLAYER_INTERACT_HW + PROP_INTERACT_HW) &&
+                    std::fabsf(dy) < (PLAYER_INTERACT_HH + PROP_INTERACT_HH))
                 {
                     held.flower     = static_cast<FlowerType>(s.plants[i].seedType);
                     held.type       = HeldItem::FLOWER;
@@ -149,19 +159,24 @@ namespace plantSystem
                 }
             }
 
-            // 1b — pick seed from chest only if no harvest occurred
+            // 1b — pick seed from nearest touching chest only if no harvest occurred
             if (!harvested)
             {
+                int   bestIdx  = -1;
+                float bestDist = 1e9f;
                 for (int c = 0; c < chestCount; ++c)
                 {
                     float dx = chests[c].pos.x - playerPos.x;
                     float dy = chests[c].pos.y - playerPos.y;
-                    if (std::sqrt(dx * dx + dy * dy) < INTERACT_RADIUS)
-                    {
-                        held.type = HeldItem::SEED;
-                        held.seed = chests[c].seed;
-                        break;
-                    }
+                    if (std::fabsf(dx) >= (PLAYER_INTERACT_HW + PROP_INTERACT_HW) ||
+                        std::fabsf(dy) >= (PLAYER_INTERACT_HH + PROP_INTERACT_HH)) continue;
+                    float d = dx * dx + dy * dy;
+                    if (d < bestDist) { bestDist = d; bestIdx = c; }
+                }
+                if (bestIdx >= 0)
+                {
+                    held.type = HeldItem::SEED;
+                    held.seed = chests[bestIdx].seed;
                 }
             }
         }
@@ -174,10 +189,10 @@ namespace plantSystem
             {
                 if (s.plants[i].active) continue;
 
-                float dx   = s.plants[i].pos.x - playerPos.x;
-                float dy   = s.plants[i].pos.y - playerPos.y;
-                float dist = std::sqrt(dx * dx + dy * dy);
-                if (dist < INTERACT_RADIUS)
+                float dx = s.plants[i].pos.x - playerPos.x;
+                float dy = s.plants[i].pos.y - playerPos.y;
+                if (std::fabsf(dx) < (PLAYER_INTERACT_HW + PROP_INTERACT_HW) &&
+                    std::fabsf(dy) < (PLAYER_INTERACT_HH + PROP_INTERACT_HH))
                 {
                     s.plants[i].active     = true;
                     s.plants[i].seedType   = held.seed;
@@ -260,14 +275,33 @@ namespace plantSystem
             const Plant& p = s.plants[i];
             float cx = p.pos.x, cy = p.pos.y;
 
-            // Pot base: planted texture when a seed is in, empty otherwise
-            AEGfxTexture* potToDraw = p.active ? s.potPlantedTex : s.potTex;
-            BasicUtilities::drawUICard(s.mesh, potToDraw, cx, cy, 64.f, 64.f);
+            if (!p.active)
+            {
+                // Empty pot — draw at 64×32 (matching pot_planted.png source dimensions)
+                BasicUtilities::drawUICard(s.mesh, s.potPlantedTex, cx, cy, 64.f, 32.f);
+                continue;
+            }
+            // Active pot — plant stage sprite already includes the pot visual; skip pot draw
 
-            if (!p.active) continue;
+            // Plant stage sprite — drawn at 64×128 world units (2× the 32×64 source pixels),
+            // centred on the pot so the upper half grows visually above the pot.
+            AEGfxTexture* plantTex = nullptr;
+            if (p.stage == STAGE_FULLY_GROWN)
+            {
+                int idx = (int)p.seedType;
+                if (idx > 0 && idx < 7)
+                    plantTex = s.grownTex[idx];
+            }
+            else
+            {
+                plantTex = s.stageTex[(int)p.stage];
+            }
+            if (plantTex)
+                BasicUtilities::drawUICard(s.mesh, plantTex, cx, cy, 64.f, 128.f);
 
-            // Rectangular growth bar below the pot
-            DrawGrowthBar(s.mesh, cx, cy, p.growth);
+            // Growth bar — hidden once fully grown (plant sprite communicates completion)
+            if (p.stage != STAGE_FULLY_GROWN)
+                DrawGrowthBar(s.mesh, cx, cy, p.growth);
         }
     }
 
@@ -281,17 +315,16 @@ namespace plantSystem
         if (s.potPlantedTex) { AEGfxTextureUnload(s.potPlantedTex); s.potPlantedTex = nullptr; }
         if (s.chestTex)      { AEGfxTextureUnload(s.chestTex);      s.chestTex      = nullptr; }
 
-        // STAGE_SEED and STAGE_SPROUT share the same pointer — unload once
-        for (int i = 0; i < 4; ++i)
-        {
-            if (i == (int)STAGE_SPROUT &&
-                s.stageTex[STAGE_SPROUT] == s.stageTex[STAGE_SEED])
-            {
-                s.stageTex[STAGE_SPROUT] = nullptr;
-                continue;
-            }
-            if (s.stageTex[i]) { AEGfxTextureUnload(s.stageTex[i]); s.stageTex[i] = nullptr; }
-        }
+        // Stage textures: SPROUT and GROWING share a pointer — unload once
+        if (s.stageTex[STAGE_SEED])   { AEGfxTextureUnload(s.stageTex[STAGE_SEED]);   s.stageTex[STAGE_SEED]   = nullptr; }
+        if (s.stageTex[STAGE_SPROUT]) { AEGfxTextureUnload(s.stageTex[STAGE_SPROUT]); s.stageTex[STAGE_SPROUT] = nullptr; }
+        s.stageTex[STAGE_GROWING]     = nullptr;  // shared with SPROUT — already freed above
+        s.stageTex[STAGE_FULLY_GROWN] = nullptr;  // not used (per-type handled via grownTex[])
+
+        // Grown textures: index 0 unused, 1–6 each unique
+        for (int i = 1; i < 7; ++i)
+            if (s.grownTex[i]) { AEGfxTextureUnload(s.grownTex[i]); s.grownTex[i] = nullptr; }
+        s.grownTex[0] = nullptr;
     }
 
     void PlantSystem_Unload(State& s)

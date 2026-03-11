@@ -146,4 +146,63 @@ namespace BasicUtilities
         AEGfxSetTransform(transform.m);
         AEGfxMeshDraw(mesh, AE_GFX_MDM_TRIANGLES);
     }
+
+    void drawTooltip(AEGfxVertexList* mesh,
+                     AEGfxTexture* iconTex,
+                     float ir, float ig, float ib,
+                     const char* label,
+                     float cx, float cy,
+                     s8 fontId,
+                     float scale, float bgAlpha)
+    {
+        constexpr float ICON_SIZE = 28.f;
+        constexpr float ICON_GAP  =  6.f;
+        constexpr float SIDE_PAD  = 10.f;
+        constexpr float BAR_H     = 40.f;
+
+        // Measure label text in world units
+        float normW = 0.f, normH = 0.f;
+        AEGfxGetPrintSize(fontId, label, scale, &normW, &normH);
+        const float textWorldW = normW * (AEGfxGetWindowWidth() / 2.f);
+
+        const float barW = SIDE_PAD + ICON_SIZE + ICON_GAP + textWorldW + SIDE_PAD;
+
+        // Dark background
+        AEMtx33 sclMtx{}, trsMtx{}, mtx{};
+        AEGfxSetRenderMode(AE_GFX_RM_COLOR);
+        AEGfxSetBlendMode(AE_GFX_BM_BLEND);
+        AEGfxSetColorToAdd(0.f, 0.f, 0.f, 0.f);
+        AEGfxSetColorToMultiply(0.1f, 0.1f, 0.1f, 1.f);
+        AEGfxSetTransparency(bgAlpha);
+        AEMtx33Scale(&sclMtx, barW, BAR_H);
+        AEMtx33Trans(&trsMtx, cx, cy);
+        AEMtx33Concat(&mtx, &trsMtx, &sclMtx);
+        AEGfxSetTransform(mtx.m);
+        AEGfxMeshDraw(mesh, AE_GFX_MDM_TRIANGLES);
+
+        // Icon
+        const float iconCx = cx - barW * 0.5f + SIDE_PAD + ICON_SIZE * 0.5f;
+        if (iconTex)
+        {
+            drawUICard(mesh, iconTex, iconCx, cy, ICON_SIZE, ICON_SIZE, 1.f);
+            // Restore colour mode for subsequent draws
+            AEGfxSetRenderMode(AE_GFX_RM_COLOR);
+            AEGfxSetBlendMode(AE_GFX_BM_BLEND);
+            AEGfxSetColorToAdd(0.f, 0.f, 0.f, 0.f);
+        }
+        else
+        {
+            AEGfxSetColorToMultiply(ir, ig, ib, 1.f);
+            AEGfxSetTransparency(1.f);
+            AEMtx33Scale(&sclMtx, ICON_SIZE, ICON_SIZE);
+            AEMtx33Trans(&trsMtx, iconCx, cy);
+            AEMtx33Concat(&mtx, &trsMtx, &sclMtx);
+            AEGfxSetTransform(mtx.m);
+            AEGfxMeshDraw(mesh, AE_GFX_MDM_TRIANGLES);
+        }
+
+        // Label text
+        const float textCx = iconCx + ICON_SIZE * 0.5f + ICON_GAP + textWorldW * 0.5f;
+        drawText(fontId, label, textCx, cy, scale, 1.f, 1.f, 1.f, 1.f);
+    }
 }

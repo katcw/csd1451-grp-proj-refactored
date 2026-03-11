@@ -13,7 +13,7 @@ namespace TimeOfDay
     //========================================================================
     // SETTINGS
     //========================================================================
-    constexpr float REAL_DURATION_SEC = 10.0f;        // 5 real minutes = full day
+    constexpr float REAL_DURATION_SEC = 360.0f;        // 5 real minutes = full day
     constexpr float START_TIME_SEC    = 7.f  * 3600.f; // 07:00
     constexpr float END_TIME_SEC      = 18.f * 3600.f; // 18:00
     constexpr float SIM_DURATION_SEC  = END_TIME_SEC - START_TIME_SEC;

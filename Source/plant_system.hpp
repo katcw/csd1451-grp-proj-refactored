@@ -20,11 +20,18 @@ namespace plantSystem
 {
     // Constants
     constexpr int   MAX_PLANTS       = 6;
-    constexpr float INTERACT_RADIUS  = 100.f;  // [TUNE] world-unit reach for E/Q interactions
+    constexpr float INTERACT_RADIUS  = 100.f;  // [LEGACY] kept for PlantSystem_NearestPlant (watering)
     constexpr float BASE_GROWTH_RATE = 0.04f;  // Progress per second
     constexpr float WATER_MULTIPLIER = 3.0f;   // growth multiplier while watered
     constexpr float WATER_MAX        = 10.f;   // seconds of water in the can
     constexpr float WATER_DRAIN_RATE = 1.f;    // units/sec while Q is held
+
+    // AABB interaction extents — used for E-key prop interaction and tooltip display.
+    // Player extents must match PlayerSystem::HALF_W and PlayerSystem::HALF_H.
+    constexpr float PLAYER_INTERACT_HW = 25.f;  // matches PlayerSystem::HALF_W
+    constexpr float PLAYER_INTERACT_HH = 50.f;  // matches PlayerSystem::HALF_H
+    constexpr float PROP_INTERACT_HW   = 32.f;  // half-width of standard prop (chest, pot)
+    constexpr float PROP_INTERACT_HH   = 32.f;  // half-height of standard prop
 
     //========================================================================
     // ENUMS & STRUCTS
@@ -66,7 +73,8 @@ namespace plantSystem
         AEGfxTexture*    potTex        = nullptr;  // empty pot
         AEGfxTexture*    potPlantedTex = nullptr;  // pot with seed planted
         AEGfxTexture*    chestTex      = nullptr;
-        AEGfxTexture*    stageTex[4] = {};          // zero-initialised to nullptr; set in PlantSystem_Load
+        AEGfxTexture*    stageTex[4]   = {};  // [PlantStage]: SEED, SPROUT(=GROWING shared), GROWING, unused
+        AEGfxTexture*    grownTex[7]   = {};  // [SeedType 0-6]: 0=unused, 1-6=per-flower fully-grown
         AEGfxVertexList* mesh          = nullptr;
     };
 

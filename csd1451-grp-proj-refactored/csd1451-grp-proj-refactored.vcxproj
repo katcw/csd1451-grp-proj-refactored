@@ -25,6 +25,8 @@
     <ClCompile Include="..\source\splash_state.cpp" />
     <ClCompile Include="..\Source\sprite.cpp" />
     <ClCompile Include="..\Source\tutorial.cpp" />
+    <ClCompile Include="..\Source\level1.cpp" />
+    <ClCompile Include="..\Source\tables.cpp" />
     <ClCompile Include="..\source\utilities.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -44,6 +46,8 @@
     <ClInclude Include="..\source\splash_state.hpp" />
     <ClInclude Include="..\Source\sprite.hpp" />
     <ClInclude Include="..\Source\tutorial.hpp" />
+    <ClInclude Include="..\Source\level1.hpp" />
+    <ClInclude Include="..\Source\tables.hpp" />
     <ClInclude Include="..\source\utilities.hpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

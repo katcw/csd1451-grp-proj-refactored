@@ -96,4 +96,26 @@ namespace BasicUtilities
 	void drawUICard(AEGfxVertexList* mesh, AEGfxTexture* texture,
 	                float worldX, float worldY,
 	                float width, float height, float alpha = 1.0f);
+
+	/******************************************************************************/
+	/*
+		Draws a tooltip bar in the style of the old-repo storage tooltip:
+		  [ dark background ] [ icon ] [ label text ]
+
+		cx, cy    = world-space centre of the bar
+		iconTex   = icon texture; if nullptr, draws a coloured square (ir,ig,ib)
+		ir,ig,ib  = fallback icon colour when iconTex == nullptr
+		label     = text shown to the right of the icon
+		scale     = text scale (default 0.55)
+		bgAlpha   = background transparency (default 0.85)
+	*/
+	/******************************************************************************/
+	void drawTooltip(AEGfxVertexList* mesh,
+	                 AEGfxTexture* iconTex,
+	                 float ir, float ig, float ib,
+	                 const char* label,
+	                 float cx, float cy,
+	                 s8 fontId,
+	                 float scale   = 0.55f,
+	                 float bgAlpha = 0.85f);
 }

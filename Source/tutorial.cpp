@@ -160,15 +160,15 @@ namespace
     // Tutorial task system
     // [!] To add a new task: add GameplayTask value, TASK_DATA entry, completion check in Update,
     //     and (if needed) pointer target branch in drawTaskPointer().
-    enum GameplayTask { TASK_INTRO,         // 0
-                        TASK_PICK_SEED,     // 1
-                        TASK_PLANT_SEED,    // 2
-                        TASK_WATER_PLANT,   // 3
-                        TASK_WAITING,       // 4
-                        TASK_HARVEST,       // 5
-                        TASK_SELLING,       // 6
-                        TASK_RETRY,         // 7  non-linear: failure/retry state
-                        TASK_ALL_DONE,      // 8
+    enum GameplayTask { TASK_INTRO,        
+                        TASK_PICK_SEED,     
+                        TASK_PLANT_SEED,    
+                        TASK_WATER_PLANT,   
+                        TASK_WAITING,      
+                        TASK_HARVEST,     
+                        TASK_SELLING,      
+                        TASK_RETRY,       
+                        TASK_ALL_DONE,      
                       };
     GameplayTask currentTask = TASK_INTRO;
 
@@ -351,6 +351,8 @@ void Tutorial_Initialise()
 
 void Tutorial_Update()
 {
+    if (AEInputCheckTriggered(AEVK_ESCAPE)) nextState = GS_MAINMENU;
+
     float dt = static_cast<float>(AEFrameRateControllerGetFrameTime());
 
     // [1] STAGE_TEXT_SEQUENCE
@@ -729,7 +731,7 @@ void Tutorial_Draw()
         // ── World objects: pots, chests, plants (below player) ───────────────
         plantSystem::PlantSystem_Draw(plantState, chests, chestCount);
 
-        // ── Customer (always below player) ───────────────────────────────────
+        // ── Customer sprite (always below player) ────────────────────────────
         CustomerSystem::CustomerSystem_Draw(customerState, fontId);
 
         // ── Player + particles — draw order based on perspective ─────────────
@@ -747,6 +749,9 @@ void Tutorial_Draw()
             PlayerSystem::Draw();
             ParticleSystem::Draw(particleState);
         }
+
+        // ── Customer UI (patience bar + order bubble) — always above player ──
+        CustomerSystem::CustomerSystem_DrawUI(customerState, fontId);
 
         // ── Info panel — world-space; camera pans up to reveal it ────────────
         // Panel background + icons use drawUICard (camera-aware ✓)

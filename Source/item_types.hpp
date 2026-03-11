@@ -17,32 +17,36 @@
 
 enum class SeedType
 {
+    // 1 LILY 2 ORCHID 3 DAISY 4 ROSE 5 SUNFLOWER 6 TULIP
     NONE,
-    ROSE,
-    TULIP,
-    SUNFLOWER,
-    DAISY,
-    LILY,
+    LILY, 
     ORCHID,
+    DAISY,
+    ROSE,
+    SUNFLOWER,
+    TULIP,
     COUNT
 };
 
 enum class FlowerType
 {
     NONE,
-    ROSE,
-    TULIP,
-    SUNFLOWER,
-    DAISY,
     LILY,
-    ORCHID
+    ORCHID,
+    DAISY,
+    ROSE,
+    SUNFLOWER,
+    TULIP
 };
+
+enum class FlowerModifier { NONE, FIRE, POISON };
 
 enum class HeldItem { NONE, SEED, FLOWER };
 
 struct HeldState
 {
-    HeldItem   type   = HeldItem::NONE;
-    SeedType   seed   = SeedType::NONE;
-    FlowerType flower = FlowerType::NONE;  
+    HeldItem       type     = HeldItem::NONE;
+    SeedType       seed     = SeedType::NONE;
+    FlowerType     flower   = FlowerType::NONE;
+    FlowerModifier modifier = FlowerModifier::NONE;  // active modifier on a held flower
 };
