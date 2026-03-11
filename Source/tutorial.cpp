@@ -36,9 +36,9 @@
 namespace
 {
     // Assets 
-    AEGfxTexture*       uiCardTexture   = nullptr;
-    AEGfxVertexList*    squareMesh      = nullptr;
-    s8                  fontId          = -1;
+    AEGfxTexture* uiCardTexture = nullptr;
+    AEGfxVertexList* squareMesh = nullptr;
+    s8                  fontId = -1;
 
     // Tutorial state will be split into two stages
     // [1] STAGE_TEXT_SEQUENCE will display introductory storyline
@@ -86,9 +86,9 @@ namespace
     const int TEXT_COUNT = static_cast<int>(sizeof(textSequence) / sizeof(textSequence[0]));
 
     // STAGE_GAMEPLAY assets
-    AEGfxTexture*       floorOneTex     = nullptr;
-    AEGfxTexture*       floorTwoTex     = nullptr;
-    AEGfxVertexList*    tileMesh        = nullptr;
+    AEGfxTexture* floorOneTex = nullptr;
+    AEGfxTexture* floorTwoTex = nullptr;
+    AEGfxVertexList* tileMesh = nullptr;
     Collision::Map      collisionMap;
 
     //========================================================================
@@ -105,71 +105,75 @@ namespace
     // then left to right). Add more entries here to assign seeds to chests
     // placed in additional columns.
     //========================================================================
-    static const SeedType   s_chestSeeds[]  = { SeedType::ROSE };
-    constexpr int           MAX_MAP_CHESTS  = 8;
+    static const SeedType   s_chestSeeds[] = { SeedType::ROSE };
+    constexpr int           MAX_MAP_CHESTS = 8;
 
     AEVec2                  potPositions[plantSystem::MAX_PLANTS];
-    int                     potCount        = 0;
+    int                     potCount = 0;
     plantSystem::ChestData  chests[MAX_MAP_CHESTS];
-    int                     chestCount      = 0;
+    int                     chestCount = 0;
 
     plantSystem::State      plantState;
     ParticleSystem::State   particleState;
     CustomerSystem::State   customerState;
 
+    // Ease-in/out timer for the customer order bubble
+    float                   customerTooltipT = 0.f;
+
     // [TUNE] Customer entry — bottom-centre of house, walks upward into interior
-    const AEVec2 CUSTOMER_SPAWN_POS  = {   0.0f, -225.0f };  // off-screen below bottom wall
-    const AEVec2 CUSTOMER_TARGET_POS = {   0.0f, 0.0f };  // 2 tiles into interior floor
+    const AEVec2 CUSTOMER_SPAWN_POS = { 0.0f, -225.0f };  // off-screen below bottom wall
+    const AEVec2 CUSTOMER_TARGET_POS = { 0.0f, 0.0f };  // 2 tiles into interior floor
 
     constexpr int GOLD_REWARD_FLOWER_SALE = 25;   // [TUNE] gold earned on successful sale
-    constexpr int GOLD_PENALTY_IMPATIENT  = 10;   // [TUNE] gold lost when customer leaves
+    constexpr int GOLD_PENALTY_IMPATIENT = 10;   // [TUNE] gold lost when customer leaves
 
     // Camera pan
-    bool        cameraReady         = false;
-    float       camPanTimer         = 0.f;
-    const float CAM_PAN_DURATION    = 2.0f;
-    const float CAM_START_Y         = -750.f;
-    const float CAM_END_Y           = 0.f;
-    float       currentCamY         = CAM_START_Y; 
+    bool        cameraReady = false;
+    float       camPanTimer = 0.f;
+    const float CAM_PAN_DURATION = 2.0f;
+    const float CAM_START_Y = -750.f;
+    const float CAM_END_Y = 0.f;
+    float       currentCamY = CAM_START_Y;
 
     // Info panel assets
-    AEGfxTexture* infoPanelTex      = nullptr;
-    AEGfxTexture* goldIconTex       = nullptr;
-    AEGfxTexture* clockIconTex      = nullptr;
+    AEGfxTexture* infoPanelTex = nullptr;
+    AEGfxTexture* goldIconTex = nullptr;
+    AEGfxTexture* clockIconTex = nullptr;
 
-    const AEVec2 PANEL_POS          = { 640.f, 400.f }; // World coordinates
-    const float  PANEL_W            = 300.f;
-    const float  PANEL_H            = 80.f;
-    const float  ICON_SIZE          = 30.f;
+    const AEVec2 PANEL_POS = { 640.f, 400.f }; // World coordinates
+    const float  PANEL_W = 300.f;
+    const float  PANEL_H = 80.f;
+    const float  ICON_SIZE = 30.f;
 
     // Info panel elements
     // Offsetes from PANEL_POS, adjust element positions here
-    const AEVec2 GOLD_ICON_OFF      = { -100.f, 0.f };  // Gold icon centre 
-    const AEVec2 GOLD_TEXT_OFF      = { -65.f, 0.f };  // Gold text 
-    const AEVec2 CLOCK_ICON_OFF     = { 10.f,   0.f };  // Clock icon centre
-    const AEVec2 CLOCK_TEXT_OFF     = { 75.f, 0.f };  // Clock text
+    const AEVec2 GOLD_ICON_OFF = { -100.f, 0.f };  // Gold icon centre 
+    const AEVec2 GOLD_TEXT_OFF = { -65.f, 0.f };  // Gold text 
+    const AEVec2 CLOCK_ICON_OFF = { 10.f,   0.f };  // Clock icon centre
+    const AEVec2 CLOCK_TEXT_OFF = { 75.f, 0.f };  // Clock text
 
     // Collision data 
-    constexpr float PLAYER_HW       = PlayerSystem::HALF_W;  
-    constexpr float PLAYER_HH       = PlayerSystem::HALF_H;
-    constexpr float PROP_COLL_HW    = 32.f;  // Half of sprite's 64px
-    constexpr float PROP_COLL_HH    = 32.f;
+    constexpr float PLAYER_HW = PlayerSystem::HALF_W;
+    constexpr float PLAYER_HH = PlayerSystem::HALF_H;
+    constexpr float PROP_COLL_HW = 32.f;  // Half of sprite's 64px
+    constexpr float PROP_COLL_HH = 32.f;
 
     // PanelState drives the info panel slide animation at the screen bottom.
-    
+
     // Tutorial task system
     // [!] To add a new task: add GameplayTask value, TASK_DATA entry, completion check in Update,
     //     and (if needed) pointer target branch in drawTaskPointer().
-    enum GameplayTask { TASK_INTRO,        
-                        TASK_PICK_SEED,     
-                        TASK_PLANT_SEED,    
-                        TASK_WATER_PLANT,   
-                        TASK_WAITING,      
-                        TASK_HARVEST,     
-                        TASK_SELLING,      
-                        TASK_RETRY,       
-                        TASK_ALL_DONE,      
-                      };
+    enum GameplayTask {
+        TASK_INTRO,
+        TASK_PICK_SEED,
+        TASK_PLANT_SEED,
+        TASK_WATER_PLANT,
+        TASK_WAITING,
+        TASK_HARVEST,
+        TASK_SELLING,
+        TASK_RETRY,
+        TASK_ALL_DONE,
+    };
     GameplayTask currentTask = TASK_INTRO;
 
     // Tutorial panel animation states
@@ -178,7 +182,7 @@ namespace
 
     // Task instruction textures
     AEGfxTexture* taskPanelTex = nullptr;   // info_panel_light.png
-    AEGfxTexture* pointerTex   = nullptr;   // tutorial_pointer.png
+    AEGfxTexture* pointerTex = nullptr;   // tutorial_pointer.png
 
     // Panel slide
     float       panelSlideTimer = 0.f;
@@ -186,19 +190,19 @@ namespace
 
     // Panel geometry — screen-pinned (camera fixed at Y=0 after pan)
     constexpr float TASK_PANEL_W = 800.f;
-    const float TASK_PANEL_H     = 150.f;
-    const float TASK_PANEL_Y_ON  = -450.f + TASK_PANEL_H * 0.5f + 20.f;  // visible target
+    const float TASK_PANEL_H = 150.f;
+    const float TASK_PANEL_Y_ON = -450.f + TASK_PANEL_H * 0.5f + 20.f;  // visible target
     const float TASK_PANEL_Y_OFF = -450.f - TASK_PANEL_H * 0.5f;          // off-screen
 
     // Pointer (bouncing arrow above the target prop)
-    float       pointerBounceTimer        = 0.f;
-    const float POINTER_SIZE              = 48.f;
-    const float POINTER_OFFSET_Y          = 80.f;    // world units above prop centre (pots, chests)
+    float       pointerBounceTimer = 0.f;
+    const float POINTER_SIZE = 48.f;
+    const float POINTER_OFFSET_Y = 80.f;    // world units above prop centre (pots, chests)
     // Customer pointer must clear the order bubble:
     // BUBBLE_OFFSET_Y(80) + BUBBLE_H/2(20) + POINTER_SIZE/2(24) + margin(8) = 132
     const float CUSTOMER_POINTER_OFFSET_Y = 132.f;  // [TUNE] world units above customer centre
-    const float POINTER_BOUNCE_AMP        = 8.f;
-    const float POINTER_BOUNCE_FREQ       = 1.5f;    // Hz
+    const float POINTER_BOUNCE_AMP = 8.f;
+    const float POINTER_BOUNCE_FREQ = 1.5f;    // Hz
 
     // Task data (text + optional prompt), indexed by GameplayTask
     struct TaskData
@@ -258,9 +262,9 @@ namespace
 
         constexpr float PI_F = 3.14159265f;
         float bounceY = sinf(pointerBounceTimer * 2.f * PI_F * POINTER_BOUNCE_FREQ)
-                        * POINTER_BOUNCE_AMP;
+            * POINTER_BOUNCE_AMP;
         const float offsetY = (currentTask == TASK_SELLING) ? CUSTOMER_POINTER_OFFSET_Y
-                                                             : POINTER_OFFSET_Y;
+            : POINTER_OFFSET_Y;
         BasicUtilities::drawUICard(squareMesh, pointerTex,
             target->x, target->y + offsetY + bounceY,
             POINTER_SIZE, POINTER_SIZE);
@@ -287,24 +291,24 @@ void Tutorial_Load()
 
     // Info panel textures
     infoPanelTex = BasicUtilities::loadTexture("Assets/info_panel.png");
-    goldIconTex  = BasicUtilities::loadTexture("Assets/gold_icon.png");
+    goldIconTex = BasicUtilities::loadTexture("Assets/gold_icon.png");
     clockIconTex = BasicUtilities::loadTexture("Assets/clock_icon.png");
 
     // Tutorial task textures
     taskPanelTex = BasicUtilities::loadTexture("Assets/info_panel_light.png");
-    pointerTex   = BasicUtilities::loadTexture("Assets/tutorial_pointer.png");
+    pointerTex = BasicUtilities::loadTexture("Assets/tutorial_pointer.png");
 }
 
 void Tutorial_Initialise()
 {
-    squareMesh         = BasicUtilities::createSquareMesh();
-    currentStage       = STAGE_TEXT_SEQUENCE;
-    currentPhase       = FADE_IN;
-    currentTextIndex   = 0;
-    phaseTimer         = 0.0f;
-    alpha              = 0.0f;
+    squareMesh = BasicUtilities::createSquareMesh();
+    currentStage = STAGE_TEXT_SEQUENCE;
+    currentPhase = FADE_IN;
+    currentTextIndex = 0;
+    phaseTimer = 0.0f;
+    alpha = 0.0f;
     red = green = blue = 0.0f;
-    backgroundTimer    = 0.0f;
+    backgroundTimer = 0.0f;
 
     // Gameplay stage
     tileMesh = BasicUtilities::createSquareMesh();
@@ -324,16 +328,16 @@ void Tutorial_Initialise()
 
     // Pots ID 3
     potCount = Collision::Map_GetCentres(collisionMap, 3,
-                   potPositions, plantSystem::MAX_PLANTS);
+        potPositions, plantSystem::MAX_PLANTS);
 
     // Chests ID 4
     AEVec2 chestPosBuf[MAX_MAP_CHESTS];
     chestCount = Collision::Map_GetCentres(collisionMap, 4, chestPosBuf, MAX_MAP_CHESTS);
     for (int i = 0; i < chestCount; ++i)
     {
-        chests[i].pos  = chestPosBuf[i];
+        chests[i].pos = chestPosBuf[i];
         chests[i].seed = (i < (int)(sizeof(s_chestSeeds) / sizeof(*s_chestSeeds)))
-                             ? s_chestSeeds[i] : SeedType::ROSE;
+            ? s_chestSeeds[i] : SeedType::ROSE;
     }
 
     TimeOfDay::Init(); // Restart time of day
@@ -343,10 +347,11 @@ void Tutorial_Initialise()
         CUSTOMER_SPAWN_POS, CUSTOMER_TARGET_POS, FlowerType::ROSE);
 
     // Tutorial task system
-    currentTask        = TASK_INTRO;
-    panelState         = PANEL_HIDDEN;
-    panelSlideTimer    = 0.f;
+    currentTask = TASK_INTRO;
+    panelState = PANEL_HIDDEN;
+    panelSlideTimer = 0.f;
     pointerBounceTimer = 0.f;
+    customerTooltipT = 0.f;
 }
 
 void Tutorial_Update()
@@ -361,9 +366,9 @@ void Tutorial_Update()
         if (AEInputCheckTriggered(AEVK_SPACE) &&
             currentPhase != BG_TRANSITION && currentPhase != COMPLETE)
         {
-            currentPhase    = BG_TRANSITION;
+            currentPhase = BG_TRANSITION;
             backgroundTimer = 0.0f;
-            alpha           = 0.0f;
+            alpha = 0.0f;
             return;
         }
 
@@ -397,9 +402,9 @@ void Tutorial_Update()
             backgroundTimer += dt;
             float t = backgroundTimer / BG_TRANSITION_DURATION;
             if (t > 1.f) t = 1.f;
-            red   = t * targetRed;
+            red = t * targetRed;
             green = t * targetGreen;
-            blue  = t * targetBlue;
+            blue = t * targetBlue;
             if (backgroundTimer >= BG_TRANSITION_DURATION)
             {
                 red = targetRed; green = targetGreen; blue = targetBlue;
@@ -423,7 +428,7 @@ void Tutorial_Update()
         if (!cameraReady)
         {
             camPanTimer += dt;
-            float t      = camPanTimer / CAM_PAN_DURATION;
+            float t = camPanTimer / CAM_PAN_DURATION;
             if (t > 1.f) t = 1.f;
             float tEased = 1.f - (1.f - t) * (1.f - t); // quad ease-out
 
@@ -432,10 +437,10 @@ void Tutorial_Update()
 
             if (camPanTimer >= CAM_PAN_DURATION)
             {
-                currentCamY     = CAM_END_Y;
+                currentCamY = CAM_END_Y;
                 AEGfxSetCamPosition(0.f, CAM_END_Y);
-                cameraReady     = true; // After camera is done panning, switch cameraReady to true
-                panelState      = PANEL_SLIDING_IN;
+                cameraReady = true; // After camera is done panning, switch cameraReady to true
+                panelState = PANEL_SLIDING_IN;
                 panelSlideTimer = 0.f;
             }
         }
@@ -445,6 +450,13 @@ void Tutorial_Update()
             // Debug mode toggle
             if (AEInputCheckTriggered(AEVK_LBRACKET))
                 Debug::enabled = !Debug::enabled;
+
+            // Tick customer order bubble ease-in/out timer
+            constexpr float ANIM_SPEED = 6.f;
+            BasicUtilities::tickEase(customerTooltipT,
+                customerState.active &&
+                customerState.customer.state == CustomerState::WAITING,
+                dt, ANIM_SPEED);
 
             //------------------------------------------------------------------
             // Player movement — tile map blocks walls (ID=1).
@@ -457,7 +469,7 @@ void Tutorial_Update()
 
             // Directional prop AABB (PW/PH = player half-extents, PROP_HW/HH = prop half-extents)
             {
-                constexpr float PW = PLAYER_HW,    PH = PLAYER_HH;
+                constexpr float PW = PLAYER_HW, PH = PLAYER_HH;
                 constexpr float PROP_HW = PROP_COLL_HW, PROP_HH = PROP_COLL_HH;
 
                 // ── Tunable: bottom-overlap allowance ────────────────────────────────
@@ -475,24 +487,24 @@ void Tutorial_Update()
                 constexpr float PROP_BOTTOM_ALLOW = 0.f;
 
                 auto isPropBlocked = [&](float cx, float cy, bool topOnly) -> bool
-                {
-                    for (int i = 0; i < potCount; ++i)
-                        if (fabsf(cx - potPositions[i].x) < PW + PROP_HW &&
-                            fabsf(cy - potPositions[i].y) < PH + PROP_HH &&
-                            (!topOnly || cy >= potPositions[i].y - PROP_BOTTOM_ALLOW))
-                            return true;
-                    for (int i = 0; i < chestCount; ++i)
-                        if (fabsf(cx - chests[i].pos.x) < PW + PROP_HW &&
-                            fabsf(cy - chests[i].pos.y) < PH + PROP_HH &&
-                            (!topOnly || cy >= chests[i].pos.y - PROP_BOTTOM_ALLOW))
-                            return true;
-                    if (customerState.active)
-                        if (fabsf(cx - customerState.customer.position.x) < PW + PROP_HW &&
-                            fabsf(cy - customerState.customer.position.y) < PH + PROP_HH &&
-                            (!topOnly || cy >= customerState.customer.position.y - PROP_BOTTOM_ALLOW))
-                            return true;
-                    return false;
-                };
+                    {
+                        for (int i = 0; i < potCount; ++i)
+                            if (fabsf(cx - potPositions[i].x) < PW + PROP_HW &&
+                                fabsf(cy - potPositions[i].y) < PH + PROP_HH &&
+                                (!topOnly || cy >= potPositions[i].y - PROP_BOTTOM_ALLOW))
+                                return true;
+                        for (int i = 0; i < chestCount; ++i)
+                            if (fabsf(cx - chests[i].pos.x) < PW + PROP_HW &&
+                                fabsf(cy - chests[i].pos.y) < PH + PROP_HH &&
+                                (!topOnly || cy >= chests[i].pos.y - PROP_BOTTOM_ALLOW))
+                                return true;
+                        if (customerState.active)
+                            if (fabsf(cx - customerState.customer.position.x) < PW + PROP_HW &&
+                                fabsf(cy - customerState.customer.position.y) < PH + PROP_HH &&
+                                (!topOnly || cy >= customerState.customer.position.y - PROP_BOTTOM_ALLOW))
+                                return true;
+                        return false;
+                    };
 
                 if (isPropBlocked(PlayerSystem::p1->position.x, prevPos.y, true))
                     PlayerSystem::p1->position.x = prevPos.x;
@@ -514,7 +526,9 @@ void Tutorial_Update()
             {
                 panelSlideTimer += dt;
                 if (panelState == PANEL_SLIDING_IN && panelSlideTimer >= PANEL_SLIDE_DUR)
-                    { panelState = PANEL_VISIBLE;  panelSlideTimer = 0.f; }
+                {
+                    panelState = PANEL_VISIBLE;  panelSlideTimer = 0.f;
+                }
                 else if (panelState == PANEL_SLIDING_OUT && panelSlideTimer >= PANEL_SLIDE_DUR)
                 {
                     panelSlideTimer = 0.f;
@@ -523,7 +537,7 @@ void Tutorial_Update()
                     {
                         // Non-linear: restart at harvest or sell depending on player state
                         currentTask = (PlayerSystem::p1->held.type == HeldItem::FLOWER)
-                                      ? TASK_SELLING : TASK_HARVEST;
+                            ? TASK_SELLING : TASK_HARVEST;
                         CustomerSystem::CustomerSystem_Spawn(customerState);
                         panelState = PANEL_SLIDING_IN;
                     }
@@ -531,7 +545,7 @@ void Tutorial_Update()
                     {
                         // Sale complete — skip TASK_RETRY and go directly to end
                         currentTask = TASK_ALL_DONE;
-                        panelState  = PANEL_HIDDEN;
+                        panelState = PANEL_HIDDEN;
                     }
                     else if (currentTask == TASK_WATER_PLANT)
                     {
@@ -540,18 +554,20 @@ void Tutorial_Update()
                         for (int i = 0; i < plantState.potCount; ++i)
                             if (plantState.plants[i].active &&
                                 plantState.plants[i].stage == plantSystem::STAGE_FULLY_GROWN)
-                                { alreadyGrown = true; break; }
+                            {
+                                alreadyGrown = true; break;
+                            }
 
                         currentTask = alreadyGrown ? TASK_HARVEST : TASK_WAITING;
                         CustomerSystem::CustomerSystem_Spawn(customerState); // spawn in both paths
-                        panelState  = PANEL_SLIDING_IN;
+                        panelState = PANEL_SLIDING_IN;
                     }
                     else
                     {
                         // Normal linear advance
                         currentTask = static_cast<GameplayTask>(currentTask + 1);
-                        panelState  = (currentTask < TASK_ALL_DONE) ? PANEL_SLIDING_IN
-                                                                      : PANEL_HIDDEN;
+                        panelState = (currentTask < TASK_ALL_DONE) ? PANEL_SLIDING_IN
+                            : PANEL_HIDDEN;
                         // Spawn customer as soon as TASK_WAITING begins
                         if (currentTask == TASK_WAITING)
                             CustomerSystem::CustomerSystem_Spawn(customerState);
@@ -566,7 +582,7 @@ void Tutorial_Update()
             if (currentTask == TASK_INTRO && panelState == PANEL_VISIBLE &&
                 AEInputCheckTriggered(AEVK_LBUTTON))
             {
-                panelState      = PANEL_SLIDING_OUT;
+                panelState = PANEL_SLIDING_OUT;
                 panelSlideTimer = 0.f;
             }
 
@@ -574,7 +590,7 @@ void Tutorial_Update()
             if (currentTask == TASK_PICK_SEED && panelState == PANEL_VISIBLE &&
                 PlayerSystem::p1->held.type == HeldItem::SEED)
             {
-                panelState      = PANEL_SLIDING_OUT;
+                panelState = PANEL_SLIDING_OUT;
                 panelSlideTimer = 0.f;
             }
 
@@ -585,7 +601,7 @@ void Tutorial_Update()
                 {
                     if (plantState.plants[i].active)
                     {
-                        panelState      = PANEL_SLIDING_OUT;
+                        panelState = PANEL_SLIDING_OUT;
                         panelSlideTimer = 0.f;
                         break;
                     }
@@ -600,7 +616,7 @@ void Tutorial_Update()
                     if (plantState.plants[i].active &&
                         plantState.plants[i].stage == plantSystem::STAGE_FULLY_GROWN)
                     {
-                        panelState      = PANEL_SLIDING_OUT;
+                        panelState = PANEL_SLIDING_OUT;
                         panelSlideTimer = 0.f;
                         break;
                     }
@@ -615,7 +631,7 @@ void Tutorial_Update()
                     if (plantState.plants[i].isWatered ||
                         plantState.plants[i].stage == plantSystem::STAGE_FULLY_GROWN)
                     {
-                        panelState      = PANEL_SLIDING_OUT;
+                        panelState = PANEL_SLIDING_OUT;
                         panelSlideTimer = 0.f;
                         break;
                     }
@@ -626,7 +642,7 @@ void Tutorial_Update()
             if (currentTask == TASK_HARVEST && panelState == PANEL_VISIBLE &&
                 PlayerSystem::p1->held.type == HeldItem::FLOWER)
             {
-                panelState      = PANEL_SLIDING_OUT;
+                panelState = PANEL_SLIDING_OUT;
                 panelSlideTimer = 0.f;
             }
 
@@ -643,7 +659,7 @@ void Tutorial_Update()
                     CustomerSystem::CustomerSystem_Serve(customerState);
                     Gold::Earn(GOLD_REWARD_FLOWER_SALE);
                     PlayerSystem::p1->held = HeldState{};   // clear flower; MC returns to non-carry anim
-                    panelState      = PANEL_SLIDING_OUT;
+                    panelState = PANEL_SLIDING_OUT;
                     panelSlideTimer = 0.f;
                 }
             }
@@ -652,7 +668,7 @@ void Tutorial_Update()
             if (currentTask == TASK_RETRY && panelState == PANEL_VISIBLE &&
                 AEInputCheckTriggered(AEVK_LBUTTON))
             {
-                panelState      = PANEL_SLIDING_OUT;
+                panelState = PANEL_SLIDING_OUT;
                 panelSlideTimer = 0.f;
             }
 
@@ -680,8 +696,8 @@ void Tutorial_Update()
                 (currentTask == TASK_HARVEST || currentTask == TASK_SELLING))
             {
                 Gold::ApplyPenalty(GOLD_PENALTY_IMPATIENT);
-                currentTask     = TASK_RETRY;
-                panelState      = PANEL_VISIBLE;   // panel already on-screen; text updates instantly
+                currentTask = TASK_RETRY;
+                panelState = PANEL_VISIBLE;   // panel already on-screen; text updates instantly
                 panelSlideTimer = 0.f;
             }
         }
@@ -701,7 +717,7 @@ void Tutorial_Draw()
             {
                 const TextEntry& e = textSequence[currentTextIndex];
                 BasicUtilities::drawText(fontId, e.text, e.x, e.y, e.scale,
-                                         e.r, e.g, e.b, alpha);
+                    e.r, e.g, e.b, alpha);
             }
         }
     }
@@ -720,11 +736,11 @@ void Tutorial_Draw()
             {
                 if (collisionMap.solid[static_cast<size_t>(row) * collisionMap.width + col]) continue;
 
-                float cx  = collisionMap.origin.x + col * collisionMap.tileSize + collisionMap.tileSize * 0.5f;
-                float cy  = collisionMap.origin.y + row * collisionMap.tileSize + collisionMap.tileSize * 0.5f;
+                float cx = collisionMap.origin.x + col * collisionMap.tileSize + collisionMap.tileSize * 0.5f;
+                float cy = collisionMap.origin.y + row * collisionMap.tileSize + collisionMap.tileSize * 0.5f;
                 AEGfxTexture* tex = ((col + row) % 2 == 0) ? floorOneTex : floorTwoTex;
                 BasicUtilities::drawUICard(tileMesh, tex, cx, cy,
-                                           collisionMap.tileSize, collisionMap.tileSize);
+                    collisionMap.tileSize, collisionMap.tileSize);
             }
         }
 
@@ -751,7 +767,8 @@ void Tutorial_Draw()
         }
 
         // ── Customer UI (patience bar + order bubble) — always above player ──
-        CustomerSystem::CustomerSystem_DrawUI(customerState, fontId);
+        CustomerSystem::CustomerSystem_DrawUI(customerState, fontId, nullptr,
+            BasicUtilities::smoothstep(customerTooltipT));
 
         // ── Info panel — world-space; camera pans up to reveal it ────────────
         // Panel background + icons use drawUICard (camera-aware ✓)
@@ -811,9 +828,9 @@ void Tutorial_Draw()
 
             if (currentTask >= TASK_INTRO && currentTask < TASK_ALL_DONE)
             {
-                constexpr float TEXT_SCALE   = 0.8f;
+                constexpr float TEXT_SCALE = 0.8f;
                 constexpr float PROMPT_SCALE = 0.7f;
-                constexpr float TEXT_MAX_W   = TASK_PANEL_W - 60.f;  // 30 px padding each side
+                constexpr float TEXT_MAX_W = TASK_PANEL_W - 60.f;  // 30 px padding each side
 
                 const TaskData& td = TASK_DATA[currentTask];
 
@@ -847,35 +864,35 @@ void Tutorial_Draw()
 
             // Lambda: draw one AABB with a given colour (tunable via debug.hpp)
             auto drawAABB = [&](float cx, float cy, float hw, float hh,
-                                float r, float g, float b)
-            {
-                AEGfxSetTransparency(Debug::HITBOX_ALPHA);
-                AEGfxSetColorToMultiply(r, g, b, 1.f);
-                AEMtx33Scale(&sclMtx, hw * 2.f, hh * 2.f);
-                AEMtx33Trans(&trsMtx, cx, cy);
-                AEMtx33Concat(&mtx, &trsMtx, &sclMtx);
-                AEGfxSetTransform(mtx.m);
-                AEGfxMeshDraw(squareMesh, AE_GFX_MDM_TRIANGLES);
-            };
+                float r, float g, float b)
+                {
+                    AEGfxSetTransparency(Debug::HITBOX_ALPHA);
+                    AEGfxSetColorToMultiply(r, g, b, 1.f);
+                    AEMtx33Scale(&sclMtx, hw * 2.f, hh * 2.f);
+                    AEMtx33Trans(&trsMtx, cx, cy);
+                    AEMtx33Concat(&mtx, &trsMtx, &sclMtx);
+                    AEGfxSetTransform(mtx.m);
+                    AEGfxMeshDraw(squareMesh, AE_GFX_MDM_TRIANGLES);
+                };
 
             // Player AABB
             if (PlayerSystem::p1)
                 drawAABB(PlayerSystem::p1->position.x, PlayerSystem::p1->position.y,
-                         PLAYER_HW, PLAYER_HH,
-                         Debug::PLAYER_R, Debug::PLAYER_G, Debug::PLAYER_B);
+                    PLAYER_HW, PLAYER_HH,
+                    Debug::PLAYER_R, Debug::PLAYER_G, Debug::PLAYER_B);
             // Pot AABBs
             for (int i = 0; i < potCount; ++i)
                 drawAABB(potPositions[i].x, potPositions[i].y, PROP_COLL_HW, PROP_COLL_HH,
-                         Debug::POT_R, Debug::POT_G, Debug::POT_B);
+                    Debug::POT_R, Debug::POT_G, Debug::POT_B);
             // Chest AABBs
             for (int i = 0; i < chestCount; ++i)
                 drawAABB(chests[i].pos.x, chests[i].pos.y, PROP_COLL_HW, PROP_COLL_HH,
-                         Debug::CHEST_R, Debug::CHEST_G, Debug::CHEST_B);
+                    Debug::CHEST_R, Debug::CHEST_G, Debug::CHEST_B);
             // Customer AABB
             if (customerState.active)
                 drawAABB(customerState.customer.position.x, customerState.customer.position.y,
-                         PROP_COLL_HW, PROP_COLL_HH,
-                         Debug::CUSTOMER_R, Debug::CUSTOMER_G, Debug::CUSTOMER_B);
+                    PROP_COLL_HW, PROP_COLL_HH,
+                    Debug::CUSTOMER_R, Debug::CUSTOMER_G, Debug::CUSTOMER_B);
 
             // Debug status text
             if (PlayerSystem::p1)
@@ -883,12 +900,12 @@ void Tutorial_Draw()
                 const auto& dbgP = *PlayerSystem::p1;
 
                 const char* faceStr =
-                    dbgP.facing == Entity::FaceDirection::UP    ? "UP"    :
-                    dbgP.facing == Entity::FaceDirection::DOWN  ? "DOWN"  :
-                    dbgP.facing == Entity::FaceDirection::LEFT  ? "LEFT"  : "RIGHT";
+                    dbgP.facing == Entity::FaceDirection::UP ? "UP" :
+                    dbgP.facing == Entity::FaceDirection::DOWN ? "DOWN" :
+                    dbgP.facing == Entity::FaceDirection::LEFT ? "LEFT" : "RIGHT";
 
                 const char* heldStr =
-                    dbgP.held.type == HeldItem::SEED   ? "SEED"   :
+                    dbgP.held.type == HeldItem::SEED ? "SEED" :
                     dbgP.held.type == HeldItem::FLOWER ? "FLOWER" : "NONE";
 
                 char dbgBuf[64];

@@ -45,9 +45,9 @@ namespace
     //========================================================================
     // Assets
     //========================================================================
-    AEGfxTexture*    uiCardTexture = nullptr;
-    AEGfxVertexList* squareMesh   = nullptr;
-    s8               fontId       = -1;
+    AEGfxTexture* uiCardTexture = nullptr;
+    AEGfxVertexList* squareMesh = nullptr;
+    s8               fontId = -1;
 
     //========================================================================
     // Level stage: narrative text intro → gameplay
@@ -59,21 +59,21 @@ namespace
     enum Level1Phase { FADE_IN, HOLD, FADE_OUT, BG_TRANSITION, COMPLETE };
     Level1Phase currentPhase = FADE_IN;
 
-    float phaseTimer      = 0.f;
-    float alpha           = 0.f;
+    float phaseTimer = 0.f;
+    float alpha = 0.f;
     int   currentTextIndex = 0;
 
-    const float FADE_IN_DURATION       = 1.5f;
-    const float HOLD_DURATION          = 2.5f;
-    const float FADE_OUT_DURATION      = 1.0f;
+    const float FADE_IN_DURATION = 1.5f;
+    const float HOLD_DURATION = 2.5f;
+    const float FADE_OUT_DURATION = 1.0f;
     const float BG_TRANSITION_DURATION = 1.5f;
 
     float red = 0.f, green = 0.f, blue = 0.f;
     float backgroundTimer = 0.f;
 
-    const float targetRed   = 0.85f;
+    const float targetRed = 0.85f;
     const float targetGreen = 0.84f;
-    const float targetBlue  = 0.80f;
+    const float targetBlue = 0.80f;
 
     // Text sequence data
     struct TextEntry { const char* text; float x, y, scale, r, g, b; };
@@ -89,9 +89,9 @@ namespace
     //========================================================================
     // Gameplay map / floor assets
     //========================================================================
-    AEGfxTexture*    floorOneTex = nullptr;
-    AEGfxTexture*    floorTwoTex = nullptr;
-    AEGfxVertexList* tileMesh    = nullptr;
+    AEGfxTexture* floorOneTex = nullptr;
+    AEGfxTexture* floorTwoTex = nullptr;
+    AEGfxVertexList* tileMesh = nullptr;
     Collision::Map   collisionMap;
 
     //========================================================================
@@ -112,16 +112,20 @@ namespace
     constexpr int MAX_MAP_CHESTS = 8;   // [TUNE] must be ≥ chest count in map
 
     AEVec2                  potPositions[plantSystem::MAX_PLANTS];
-    int                     potCount   = 0;
+    int                     potCount = 0;
     plantSystem::ChestData  chests[MAX_MAP_CHESTS];
     int                     chestCount = 0;
+
+    float chestTooltipT[MAX_MAP_CHESTS]{};           // 0-1 ease-in/out per chest
+    float heldTooltipT = 0.f;                  // 0-1 ease-in/out for held-item bar
+    float customerTooltipT[CustomerSystem::POOL_MAX]{}; // 0-1 ease-in/out per customer slot
 
     plantSystem::State      plantState;
     ParticleSystem::State   particleState;
 
     // Table positions (loaded from map IDs 5 and 6)
     AEVec2                  runeTablePositions[TableSystem::MAX_TABLES];
-    int                     runeTableCount   = 0;
+    int                     runeTableCount = 0;
     AEVec2                  poisonTablePositions[TableSystem::MAX_TABLES];
     int                     poisonTableCount = 0;
     TableSystem::State      tableState;
@@ -146,41 +150,41 @@ namespace
     //========================================================================
     // Camera pan
     //========================================================================
-    bool        cameraReady      = false;
-    float       camPanTimer      = 0.f;
+    bool        cameraReady = false;
+    float       camPanTimer = 0.f;
     const float CAM_PAN_DURATION = 2.0f;
-    const float CAM_START_Y      = -750.f;
-    const float CAM_END_Y        = 0.f;
-    float       currentCamY      = CAM_START_Y;
+    const float CAM_START_Y = -750.f;
+    const float CAM_END_Y = 0.f;
+    float       currentCamY = CAM_START_Y;
 
     //========================================================================
     // Info panel assets
     //========================================================================
     AEGfxTexture* infoPanelTex = nullptr;
-    AEGfxTexture* goldIconTex  = nullptr;
+    AEGfxTexture* goldIconTex = nullptr;
     AEGfxTexture* clockIconTex = nullptr;
 
-    const AEVec2 PANEL_POS     = { 640.f, 400.f };
-    const float  PANEL_W       = 300.f;
-    const float  PANEL_H       = 80.f;
-    const float  ICON_SIZE     = 30.f;
+    const AEVec2 PANEL_POS = { 640.f, 400.f };
+    const float  PANEL_W = 300.f;
+    const float  PANEL_H = 80.f;
+    const float  ICON_SIZE = 30.f;
 
-    const AEVec2 GOLD_ICON_OFF  = { -100.f, 0.f };
-    const AEVec2 GOLD_TEXT_OFF  = {  -65.f, 0.f };
-    const AEVec2 CLOCK_ICON_OFF = {   10.f, 0.f };
-    const AEVec2 CLOCK_TEXT_OFF = {   75.f, 0.f };
+    const AEVec2 GOLD_ICON_OFF = { -100.f, 0.f };
+    const AEVec2 GOLD_TEXT_OFF = { -65.f, 0.f };
+    const AEVec2 CLOCK_ICON_OFF = { 10.f, 0.f };
+    const AEVec2 CLOCK_TEXT_OFF = { 75.f, 0.f };
 
     //========================================================================
     // HUD icon textures — flower and seed pack, indexed by enum cast to int
     //========================================================================
     AEGfxTexture* flowerIconTex[7] = {};  // [FlowerType 0-6]: 0=unused, 1-6=icons
-    AEGfxTexture* seedPackTex  [7] = {};  // [SeedType   0-6]: 0=unused, 1-6=icons
+    AEGfxTexture* seedPackTex[7] = {};  // [SeedType   0-6]: 0=unused, 1-6=icons
 
     //========================================================================
     // Win / lose state
     //========================================================================
     enum class Level1End { PLAYING, WIN, LOSE };
-    Level1End endState  = Level1End::PLAYING;
+    Level1End endState = Level1End::PLAYING;
     float     fadeAlpha = 0.f;
 
     constexpr int GOLD_WIN_TARGET = 300;  // [TUNE] gold required to win
@@ -188,8 +192,8 @@ namespace
     //========================================================================
     // Collision extents
     //========================================================================
-    constexpr float PLAYER_HW    = PlayerSystem::HALF_W;
-    constexpr float PLAYER_HH    = PlayerSystem::HALF_H;
+    constexpr float PLAYER_HW = PlayerSystem::HALF_W;
+    constexpr float PLAYER_HH = PlayerSystem::HALF_H;
     constexpr float PROP_COLL_HW = 32.f;   // Half of sprite's 64 px
     constexpr float PROP_COLL_HH = 32.f;
 
@@ -251,7 +255,7 @@ void Level1_Load()
     CustomerSystem::CustomerPool_Load(customerPool);
 
     infoPanelTex = BasicUtilities::loadTexture("Assets/info_panel.png");
-    goldIconTex  = BasicUtilities::loadTexture("Assets/gold_icon.png");
+    goldIconTex = BasicUtilities::loadTexture("Assets/gold_icon.png");
     clockIconTex = BasicUtilities::loadTexture("Assets/clock_icon.png");
 
     // HUD icon textures — flower icon and seed pack icon for each flower type
@@ -267,15 +271,15 @@ void Level1_Load()
 
 void Level1_Initialise()
 {
-    squareMesh       = BasicUtilities::createSquareMesh();
-    tileMesh         = BasicUtilities::createSquareMesh();
-    currentStage     = STAGE_TEXT_SEQUENCE;
-    currentPhase     = FADE_IN;
+    squareMesh = BasicUtilities::createSquareMesh();
+    tileMesh = BasicUtilities::createSquareMesh();
+    currentStage = STAGE_TEXT_SEQUENCE;
+    currentPhase = FADE_IN;
     currentTextIndex = 0;
-    phaseTimer       = 0.f;
-    alpha            = 0.f;
+    phaseTimer = 0.f;
+    alpha = 0.f;
     red = green = blue = 0.f;
-    backgroundTimer  = 0.f;
+    backgroundTimer = 0.f;
 
     // Camera pan
     cameraReady = false;
@@ -292,23 +296,29 @@ void Level1_Initialise()
 
     // Pots (ID 3)
     potCount = Collision::Map_GetCentres(collisionMap, 3,
-                   potPositions, plantSystem::MAX_PLANTS);
+        potPositions, plantSystem::MAX_PLANTS);
 
     // Chests (ID 4) + seed assignment (left-to-right reading order)
     AEVec2 chestPosBuf[MAX_MAP_CHESTS];
     chestCount = Collision::Map_GetCentres(collisionMap, 4, chestPosBuf, MAX_MAP_CHESTS);
     for (int i = 0; i < chestCount; ++i)
     {
-        chests[i].pos  = chestPosBuf[i];
+        chests[i].pos = chestPosBuf[i];
         chests[i].seed = (i < (int)(sizeof(s_chestSeeds) / sizeof(*s_chestSeeds)))
-                             ? s_chestSeeds[i] : SeedType::ROSE;
+            ? s_chestSeeds[i] : SeedType::ROSE;
     }
 
+    for (int i = 0; i < MAX_MAP_CHESTS; ++i)
+        chestTooltipT[i] = 0.f;
+    heldTooltipT = 0.f;
+    for (int i = 0; i < CustomerSystem::POOL_MAX; ++i)
+        customerTooltipT[i] = 0.f;
+
     // Tables (IDs 5 and 6)
-    runeTableCount   = Collision::Map_GetCentres(collisionMap, 5,
-                           runeTablePositions,   TableSystem::MAX_TABLES);
+    runeTableCount = Collision::Map_GetCentres(collisionMap, 5,
+        runeTablePositions, TableSystem::MAX_TABLES);
     poisonTableCount = Collision::Map_GetCentres(collisionMap, 6,
-                           poisonTablePositions, TableSystem::MAX_TABLES);
+        poisonTablePositions, TableSystem::MAX_TABLES);
 
     TimeOfDay::Init();
     Gold::Init(0);
@@ -321,15 +331,15 @@ void Level1_Initialise()
 
     plantSystem::PlantSystem_Init(plantState, potPositions, potCount);
     TableSystem::TableSystem_Init(tableState,
-        runeTablePositions,  runeTableCount,
+        runeTablePositions, runeTableCount,
         poisonTablePositions, poisonTableCount);
 
     // Customer pool — first spawn timer is 0 so a customer arrives quickly
     CustomerSystem::CustomerPool_Init(customerPool, CUSTOMER_SPAWN_POS,
-                                      CUSTOMER_TARGETS, CUSTOMER_TARGET_COUNT);
+        CUSTOMER_TARGETS, CUSTOMER_TARGET_COUNT);
 
     // Win/lose state reset
-    endState  = Level1End::PLAYING;
+    endState = Level1End::PLAYING;
     fadeAlpha = 0.f;
 }
 
@@ -343,9 +353,9 @@ void Level1_Update()
         if (AEInputCheckTriggered(AEVK_SPACE) &&
             currentPhase != BG_TRANSITION && currentPhase != COMPLETE)
         {
-            currentPhase    = BG_TRANSITION;
+            currentPhase = BG_TRANSITION;
             backgroundTimer = 0.f;
-            alpha           = 0.f;
+            alpha = 0.f;
             return;
         }
 
@@ -379,9 +389,9 @@ void Level1_Update()
             backgroundTimer += dt;
             float t = backgroundTimer / BG_TRANSITION_DURATION;
             if (t > 1.f) t = 1.f;
-            red   = t * targetRed;
+            red = t * targetRed;
             green = t * targetGreen;
-            blue  = t * targetBlue;
+            blue = t * targetBlue;
             if (backgroundTimer >= BG_TRANSITION_DURATION)
             {
                 red = targetRed; green = targetGreen; blue = targetBlue;
@@ -405,7 +415,7 @@ void Level1_Update()
         if (!cameraReady)
         {
             camPanTimer += dt;
-            float t      = camPanTimer / CAM_PAN_DURATION;
+            float t = camPanTimer / CAM_PAN_DURATION;
             if (t > 1.f) t = 1.f;
             float tEased = 1.f - (1.f - t) * (1.f - t); // quad ease-out
 
@@ -430,7 +440,7 @@ void Level1_Update()
             if (endState == Level1End::PLAYING && TimeOfDay::HasEnded())
             {
                 endState = (Gold::GetTotal() >= GOLD_WIN_TARGET)
-                           ? Level1End::WIN : Level1End::LOSE;
+                    ? Level1End::WIN : Level1End::LOSE;
             }
 
             // Win/lose overlay: fade in, handle restart, freeze gameplay
@@ -446,49 +456,69 @@ void Level1_Update()
             // Player movement — tile map blocks walls (ID=1).
             // Pots, chests, tables, and WAITING customers use per-axis AABB.
             //------------------------------------------------------------------
+            // Tick all ease-in/out timers
+            constexpr float ANIM_SPEED = 6.0f;
+
+            for (int i = 0; i < chestCount; ++i)
+            {
+                bool inRange = std::fabsf(chests[i].pos.x - PlayerSystem::p1->position.x) < PLAYER_HW + PROP_COLL_HW &&
+                    std::fabsf(chests[i].pos.y - PlayerSystem::p1->position.y) < PLAYER_HH + PROP_COLL_HH;
+                BasicUtilities::tickEase(chestTooltipT[i], inRange, dt, ANIM_SPEED);
+            }
+
+            BasicUtilities::tickEase(heldTooltipT,
+                PlayerSystem::p1->held.type != HeldItem::NONE, dt, ANIM_SPEED);
+
+            for (int ci = 0; ci < CustomerSystem::POOL_MAX; ++ci)
+            {
+                const auto& sl = customerPool.slots[ci];
+                BasicUtilities::tickEase(customerTooltipT[ci],
+                    sl.active && sl.customer.state == CustomerState::WAITING, dt, ANIM_SPEED);
+            }
+
             AEVec2 prevPos = PlayerSystem::p1->position;
             PlayerSystem::Update(collisionMap, dt);
 
             {
-                constexpr float PW      = PLAYER_HW,    PH      = PLAYER_HH;
+                constexpr float PW = PLAYER_HW, PH = PLAYER_HH;
                 constexpr float PROP_HW = PROP_COLL_HW, PROP_HH = PROP_COLL_HH;
                 constexpr float PROP_BOTTOM_ALLOW = 0.f;
 
                 auto isPropBlocked = [&](float cx, float cy, bool topOnly) -> bool
-                {
-                    // Pots
-                    for (int i = 0; i < potCount; ++i)
-                        if (fabsf(cx - potPositions[i].x) < PW + PROP_HW &&
-                            fabsf(cy - potPositions[i].y) < PH + PROP_HH &&
-                            (!topOnly || cy >= potPositions[i].y - PROP_BOTTOM_ALLOW))
-                            return true;
-
-                    // Chests
-                    for (int i = 0; i < chestCount; ++i)
-                        if (fabsf(cx - chests[i].pos.x) < PW + PROP_HW &&
-                            fabsf(cy - chests[i].pos.y) < PH + PROP_HH &&
-                            (!topOnly || cy >= chests[i].pos.y - PROP_BOTTOM_ALLOW))
-                            return true;
-
-                    // Tables (wider than standard props)
-                    for (int i = 0; i < tableState.count; ++i)
-                        if (fabsf(cx - tableState.tables[i].pos.x) < PW + TableSystem::TABLE_COLL_HW &&
-                            fabsf(cy - tableState.tables[i].pos.y) < PH + TableSystem::TABLE_COLL_HH &&
-                            (!topOnly || cy >= tableState.tables[i].pos.y - PROP_BOTTOM_ALLOW))
-                            return true;
-
-                    // WAITING customers block the player (ARRIVING/LEAVING are moving; don't block)
-                    for (int ci = 0; ci < CustomerSystem::POOL_MAX; ++ci)
                     {
-                        const auto& sl = customerPool.slots[ci];
-                        if (!sl.active || sl.customer.state != CustomerState::WAITING) continue;
-                        if (fabsf(cx - sl.customer.position.x) < PW + PROP_HW &&
-                            fabsf(cy - sl.customer.position.y) < PH + PROP_HH &&
-                            (!topOnly || cy >= sl.customer.position.y - PROP_BOTTOM_ALLOW))
-                            return true;
-                    }
-                    return false;
-                };
+                        // Pots
+                        for (int i = 0; i < potCount; ++i)
+                            if (fabsf(cx - potPositions[i].x) < PW + PROP_HW &&
+                                fabsf(cy - potPositions[i].y) < PH + PROP_HH &&
+                                (!topOnly || cy >= potPositions[i].y - PROP_BOTTOM_ALLOW))
+                                return true;
+
+                        // Chests
+                        for (int i = 0; i < chestCount; ++i)
+                            if (fabsf(cx - chests[i].pos.x) < PW + PROP_HW &&
+                                fabsf(cy - chests[i].pos.y) < PH + PROP_HH &&
+                                (!topOnly || cy >= chests[i].pos.y - PROP_BOTTOM_ALLOW))
+                                return true;
+
+                        // Tables (wider than standard props)
+                        for (int i = 0; i < tableState.count; ++i)
+                            if (fabsf(cx - tableState.tables[i].pos.x) < PW + TableSystem::TABLE_COLL_HW &&
+                                fabsf(cy - tableState.tables[i].pos.y) < PH + TableSystem::TABLE_COLL_HH &&
+                                (!topOnly || cy >= tableState.tables[i].pos.y - PROP_BOTTOM_ALLOW))
+                                return true;
+
+                        // WAITING customers block the player (ARRIVING/LEAVING are moving; don't block)
+                        for (int ci = 0; ci < CustomerSystem::POOL_MAX; ++ci)
+                        {
+                            const auto& sl = customerPool.slots[ci];
+                            if (!sl.active || sl.customer.state != CustomerState::WAITING) continue;
+                            if (fabsf(cx - sl.customer.position.x) < PW + PROP_HW &&
+                                fabsf(cy - sl.customer.position.y) < PH + PROP_HH &&
+                                (!topOnly || cy >= sl.customer.position.y - PROP_BOTTOM_ALLOW))
+                                return true;
+                        }
+                        return false;
+                    };
 
                 if (isPropBlocked(PlayerSystem::p1->position.x, prevPos.y, true))
                     PlayerSystem::p1->position.x = prevPos.x;
@@ -564,7 +594,7 @@ void Level1_Draw()
             {
                 const TextEntry& e = textSequence[currentTextIndex];
                 BasicUtilities::drawText(fontId, e.text, e.x, e.y, e.scale,
-                                         e.r, e.g, e.b, alpha);
+                    e.r, e.g, e.b, alpha);
             }
         }
     }
@@ -583,11 +613,11 @@ void Level1_Draw()
             {
                 if (collisionMap.solid[static_cast<size_t>(row) * collisionMap.width + col]) continue;
 
-                float cx  = collisionMap.origin.x + col * collisionMap.tileSize + collisionMap.tileSize * 0.5f;
-                float cy  = collisionMap.origin.y + row * collisionMap.tileSize + collisionMap.tileSize * 0.5f;
+                float cx = collisionMap.origin.x + col * collisionMap.tileSize + collisionMap.tileSize * 0.5f;
+                float cy = collisionMap.origin.y + row * collisionMap.tileSize + collisionMap.tileSize * 0.5f;
                 AEGfxTexture* tex = ((col + row) % 2 == 0) ? floorOneTex : floorTwoTex;
                 BasicUtilities::drawUICard(tileMesh, tex, cx, cy,
-                                           collisionMap.tileSize, collisionMap.tileSize);
+                    collisionMap.tileSize, collisionMap.tileSize);
             }
         }
 
@@ -615,7 +645,12 @@ void Level1_Draw()
         }
 
         // ── Customer patience bars and order bubbles (above player) ──────────
-        CustomerSystem::CustomerPool_DrawUI(customerPool, fontId, flowerIconTex);
+        {
+            float smoothedCustomerT[CustomerSystem::POOL_MAX]{};
+            for (int ci = 0; ci < CustomerSystem::POOL_MAX; ++ci)
+                smoothedCustomerT[ci] = BasicUtilities::smoothstep(customerTooltipT[ci]);
+            CustomerSystem::CustomerPool_DrawUI(customerPool, fontId, flowerIconTex, smoothedCustomerT);
+        }
 
         // ── Info panel ───────────────────────────────────────────────────────
         BasicUtilities::drawUICard(squareMesh, infoPanelTex,
@@ -648,13 +683,13 @@ void Level1_Draw()
         {
             for (int i = 0; i < chestCount; ++i)
             {
-                float dx = chests[i].pos.x - PlayerSystem::p1->position.x;
-                float dy = chests[i].pos.y - PlayerSystem::p1->position.y;
-                if (std::fabsf(dx) >= PLAYER_HW + PROP_COLL_HW ||
-                    std::fabsf(dy) >= PLAYER_HH + PROP_COLL_HH) continue;
+                if (chestTooltipT[i] <= 0.f) continue;
 
                 int idx = static_cast<int>(chests[i].seed);
                 if (idx < 1 || idx > 6) continue;
+
+                // Smoothstep the raw timer before passing to drawTooltip
+                float t = BasicUtilities::smoothstep(chestTooltipT[i]);
 
                 BasicUtilities::drawTooltip(
                     squareMesh,
@@ -662,17 +697,20 @@ void Level1_Draw()
                     1.f, 1.f, 1.f,
                     SeedName(chests[i].seed),
                     chests[i].pos.x, chests[i].pos.y + 65.f,
-                    fontId);
+                    fontId,
+                    0.55f, 0.85f,
+                    t);
             }
         }
 
         // ── Held-item tooltip — dark bar at screen bottom (camera-independent) ─
-        if (cameraReady && PlayerSystem::p1 &&
-            PlayerSystem::p1->held.type != HeldItem::NONE)
+        if (cameraReady && PlayerSystem::p1 && heldTooltipT > 0.f)
         {
             constexpr float TX = 0.f;    // screen-space X (centred)
             constexpr float TY = -380.f; // screen-space Y (near bottom)
             const HeldState& held = PlayerSystem::p1->held;
+
+            float hT = BasicUtilities::smoothstep(heldTooltipT);
 
             if (held.type == HeldItem::SEED)
             {
@@ -682,25 +720,27 @@ void Level1_Draw()
                     (idx >= 1 && idx <= 6) ? seedPackTex[idx] : nullptr,
                     1.f, 1.f, 0.6f,
                     SeedName(held.seed),
-                    TX, TY, fontId);
+                    TX, TY, fontId,
+                    0.55f, 0.85f, hT);
             }
             else if (held.type == HeldItem::FLOWER)
             {
                 int idx = static_cast<int>(held.flower);
                 char labelBuf[32];
                 if (held.modifier == FlowerModifier::FIRE)
-                    sprintf_s(labelBuf, sizeof(labelBuf), "%s [FIRE]",   FlowerName(held.flower));
+                    sprintf_s(labelBuf, sizeof(labelBuf), "%s [FIRE]", FlowerName(held.flower));
                 else if (held.modifier == FlowerModifier::POISON)
                     sprintf_s(labelBuf, sizeof(labelBuf), "%s [POISON]", FlowerName(held.flower));
                 else
-                    sprintf_s(labelBuf, sizeof(labelBuf), "%s",          FlowerName(held.flower));
+                    sprintf_s(labelBuf, sizeof(labelBuf), "%s", FlowerName(held.flower));
 
                 BasicUtilities::drawTooltip(
                     squareMesh,
                     (idx >= 1 && idx <= 6) ? flowerIconTex[idx] : nullptr,
                     1.f, 0.85f, 0.3f,
                     labelBuf,
-                    TX, TY, fontId);
+                    TX, TY, fontId,
+                    0.55f, 0.85f, hT);
             }
         }
 
@@ -726,15 +766,15 @@ void Level1_Draw()
             {
                 const bool  win = (endState == Level1End::WIN);
                 const char* msg = win ? "YOU WIN!" : "YOU LOSE";
-                const float mr  = 1.f;
-                const float mg  = win ? 0.85f : 0.2f;
-                const float mb  = win ? 0.0f  : 0.2f;
+                const float mr = 1.f;
+                const float mg = win ? 0.85f : 0.2f;
+                const float mb = win ? 0.0f : 0.2f;
 
                 // drawText uses screen-space coordinates (camera does not affect it)
                 BasicUtilities::drawText(fontId, msg,
-                                         0.f,  50.f, 2.0f, mr, mg, mb, 1.f);
+                    0.f, 50.f, 2.0f, mr, mg, mb, 1.f);
                 BasicUtilities::drawText(fontId, "press R to restart",
-                                         0.f, -40.f, 0.8f, 1.f, 1.f, 1.f, 1.f);
+                    0.f, -40.f, 0.8f, 1.f, 1.f, 1.f, 1.f);
             }
         }
 
@@ -749,39 +789,39 @@ void Level1_Draw()
             AEGfxSetColorToAdd(0.f, 0.f, 0.f, 0.f);
 
             auto drawAABB = [&](float cx, float cy, float hw, float hh,
-                                float r, float g, float b)
-            {
-                AEGfxSetTransparency(Debug::HITBOX_ALPHA);
-                AEGfxSetColorToMultiply(r, g, b, 1.f);
-                AEMtx33Scale(&sclMtx, hw * 2.f, hh * 2.f);
-                AEMtx33Trans(&trsMtx, cx, cy);
-                AEMtx33Concat(&mtx, &trsMtx, &sclMtx);
-                AEGfxSetTransform(mtx.m);
-                AEGfxMeshDraw(squareMesh, AE_GFX_MDM_TRIANGLES);
-            };
+                float r, float g, float b)
+                {
+                    AEGfxSetTransparency(Debug::HITBOX_ALPHA);
+                    AEGfxSetColorToMultiply(r, g, b, 1.f);
+                    AEMtx33Scale(&sclMtx, hw * 2.f, hh * 2.f);
+                    AEMtx33Trans(&trsMtx, cx, cy);
+                    AEMtx33Concat(&mtx, &trsMtx, &sclMtx);
+                    AEGfxSetTransform(mtx.m);
+                    AEGfxMeshDraw(squareMesh, AE_GFX_MDM_TRIANGLES);
+                };
 
             // Player AABB
             if (PlayerSystem::p1)
                 drawAABB(PlayerSystem::p1->position.x, PlayerSystem::p1->position.y,
-                         PLAYER_HW, PLAYER_HH,
-                         Debug::PLAYER_R, Debug::PLAYER_G, Debug::PLAYER_B);
+                    PLAYER_HW, PLAYER_HH,
+                    Debug::PLAYER_R, Debug::PLAYER_G, Debug::PLAYER_B);
             // Pot AABBs
             for (int i = 0; i < potCount; ++i)
                 drawAABB(potPositions[i].x, potPositions[i].y, PROP_COLL_HW, PROP_COLL_HH,
-                         Debug::POT_R, Debug::POT_G, Debug::POT_B);
+                    Debug::POT_R, Debug::POT_G, Debug::POT_B);
             // Chest AABBs
             for (int i = 0; i < chestCount; ++i)
                 drawAABB(chests[i].pos.x, chests[i].pos.y, PROP_COLL_HW, PROP_COLL_HH,
-                         Debug::CHEST_R, Debug::CHEST_G, Debug::CHEST_B);
+                    Debug::CHEST_R, Debug::CHEST_G, Debug::CHEST_B);
             // Table AABBs (rune = purple, poison = lime)
             for (int i = 0; i < tableState.count; ++i)
             {
                 bool isRune = (tableState.tables[i].type == TableSystem::TableType::RUNE);
                 drawAABB(tableState.tables[i].pos.x, tableState.tables[i].pos.y,
-                         TableSystem::TABLE_COLL_HW, TableSystem::TABLE_COLL_HH,
-                         isRune ? Debug::RUNE_TABLE_R   : Debug::POISON_TABLE_R,
-                         isRune ? Debug::RUNE_TABLE_G   : Debug::POISON_TABLE_G,
-                         isRune ? Debug::RUNE_TABLE_B   : Debug::POISON_TABLE_B);
+                    TableSystem::TABLE_COLL_HW, TableSystem::TABLE_COLL_HH,
+                    isRune ? Debug::RUNE_TABLE_R : Debug::POISON_TABLE_R,
+                    isRune ? Debug::RUNE_TABLE_G : Debug::POISON_TABLE_G,
+                    isRune ? Debug::RUNE_TABLE_B : Debug::POISON_TABLE_B);
             }
 
             // Debug status text
@@ -790,16 +830,16 @@ void Level1_Draw()
                 const auto& dbgP = *PlayerSystem::p1;
 
                 const char* faceStr =
-                    dbgP.facing == Entity::FaceDirection::UP    ? "UP"    :
-                    dbgP.facing == Entity::FaceDirection::DOWN  ? "DOWN"  :
-                    dbgP.facing == Entity::FaceDirection::LEFT  ? "LEFT"  : "RIGHT";
+                    dbgP.facing == Entity::FaceDirection::UP ? "UP" :
+                    dbgP.facing == Entity::FaceDirection::DOWN ? "DOWN" :
+                    dbgP.facing == Entity::FaceDirection::LEFT ? "LEFT" : "RIGHT";
 
                 const char* heldStr =
-                    dbgP.held.type == HeldItem::SEED   ? "SEED"   :
+                    dbgP.held.type == HeldItem::SEED ? "SEED" :
                     dbgP.held.type == HeldItem::FLOWER ? "FLOWER" : "NONE";
 
                 const char* modStr =
-                    dbgP.held.modifier == FlowerModifier::FIRE   ? "+FIRE"   :
+                    dbgP.held.modifier == FlowerModifier::FIRE ? "+FIRE" :
                     dbgP.held.modifier == FlowerModifier::POISON ? "+POISON" : "";
 
                 char dbgBuf[64];
@@ -831,7 +871,7 @@ void Level1_Draw()
 void Level1_Free()
 {
     AEGfxMeshFree(squareMesh); squareMesh = nullptr;
-    AEGfxMeshFree(tileMesh);   tileMesh   = nullptr;
+    AEGfxMeshFree(tileMesh);   tileMesh = nullptr;
     PlayerSystem::Free();
     plantSystem::PlantSystem_Free(plantState);
     ParticleSystem::Free(particleState);
@@ -866,6 +906,6 @@ void Level1_Unload()
     for (int i = 1; i <= 6; ++i)
     {
         if (flowerIconTex[i]) { AEGfxTextureUnload(flowerIconTex[i]); flowerIconTex[i] = nullptr; }
-        if (seedPackTex[i])   { AEGfxTextureUnload(seedPackTex[i]);   seedPackTex[i]   = nullptr; }
+        if (seedPackTex[i]) { AEGfxTextureUnload(seedPackTex[i]);   seedPackTex[i] = nullptr; }
     }
 }

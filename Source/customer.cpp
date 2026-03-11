@@ -32,18 +32,18 @@ namespace
     //------------------------------------------------------------------------
     // Order bubble layout constants.
     //------------------------------------------------------------------------
-    constexpr float BUBBLE_H         = 40.f;  // Tooltip box height
+    constexpr float BUBBLE_H = 40.f;  // Tooltip box height
     constexpr float BUBBLE_ICON_SIZE = 30.f;  // Flower colour square size
-    constexpr float BUBBLE_ICON_GAP  =  6.f;  // Gap between icon and text
-    constexpr float BUBBLE_SIDE_PAD  = 10.f;  // Horizontal padding each side
-    constexpr float BADGE_SIZE       = 20.f;  // Modifier badge square size
-    constexpr float BADGE_GAP        =  4.f;  // Gap between flower icon and badge
+    constexpr float BUBBLE_ICON_GAP = 6.f;  // Gap between icon and text
+    constexpr float BUBBLE_SIDE_PAD = 10.f;  // Horizontal padding each side
+    constexpr float BADGE_SIZE = 20.f;  // Modifier badge square size
+    constexpr float BADGE_GAP = 4.f;  // Gap between flower icon and badge
 
     //------------------------------------------------------------------------
     // Patience bar constants.
     //------------------------------------------------------------------------
-    constexpr float PBAR_W        = 60.f;  // Full-bar width in world units
-    constexpr float PBAR_H        =  8.f;  // Bar height in world units
+    constexpr float PBAR_W = 60.f;  // Full-bar width in world units
+    constexpr float PBAR_H = 8.f;  // Bar height in world units
     constexpr float PBAR_OFFSET_Y = 55.f;  // World units above customer centre
 
     //------------------------------------------------------------------------
@@ -70,13 +70,13 @@ namespace
     {
         switch (ft)
         {
-        case FlowerType::ROSE:      r=1.0f; g=0.2f;  b=0.3f; break;
-        case FlowerType::TULIP:     r=1.0f; g=0.4f;  b=0.8f; break;
-        case FlowerType::SUNFLOWER: r=1.0f; g=0.85f; b=0.0f; break;
-        case FlowerType::DAISY:     r=1.0f; g=1.0f;  b=0.8f; break;
-        case FlowerType::LILY:      r=0.8f; g=0.5f;  b=1.0f; break;
-        case FlowerType::ORCHID:    r=0.6f; g=0.0f;  b=0.8f; break;
-        default:                    r=1.0f; g=1.0f;  b=1.0f; break;
+        case FlowerType::ROSE:      r = 1.0f; g = 0.2f;  b = 0.3f; break;
+        case FlowerType::TULIP:     r = 1.0f; g = 0.4f;  b = 0.8f; break;
+        case FlowerType::SUNFLOWER: r = 1.0f; g = 0.85f; b = 0.0f; break;
+        case FlowerType::DAISY:     r = 1.0f; g = 1.0f;  b = 0.8f; break;
+        case FlowerType::LILY:      r = 0.8f; g = 0.5f;  b = 1.0f; break;
+        case FlowerType::ORCHID:    r = 0.6f; g = 0.0f;  b = 0.8f; break;
+        default:                    r = 1.0f; g = 1.0f;  b = 1.0f; break;
         }
     }
 
@@ -96,8 +96,8 @@ namespace
         {
             const bool carrying = (c.state == CustomerState::LEAVING && c.servedSuccessfully);
             texSlot = carrying
-                      ? (c.moveState == Entity::MoveState::WALKING ? 3u : 2u)
-                      : (c.moveState == Entity::MoveState::WALKING ? 1u : 0u);
+                ? (c.moveState == Entity::MoveState::WALKING ? 3u : 2u)
+                : (c.moveState == Entity::MoveState::WALKING ? 1u : 0u);
         }
 
         switch (c.facing)
@@ -115,14 +115,14 @@ namespace
     //------------------------------------------------------------------------
     bool StepToward(Customer& c, AEVec2 targetPos, float dt)
     {
-        float dx   = targetPos.x - c.position.x;
-        float dy   = targetPos.y - c.position.y;
+        float dx = targetPos.x - c.position.x;
+        float dy = targetPos.y - c.position.y;
         float dist = std::sqrt(dx * dx + dy * dy);
 
         if (dist <= CustomerSystem::ARRIVE_EPS)
         {
-            c.position  = targetPos;
-            c.velocity  = {};
+            c.position = targetPos;
+            c.velocity = {};
             c.moveState = Entity::MoveState::IDLE;
             return true;
         }
@@ -133,10 +133,10 @@ namespace
         float nx = dx / dist;
         float ny = dy / dist;
 
-        c.velocity   = { nx * CustomerSystem::SPEED, ny * CustomerSystem::SPEED };
+        c.velocity = { nx * CustomerSystem::SPEED, ny * CustomerSystem::SPEED };
         c.position.x += nx * step;
         c.position.y += ny * step;
-        c.moveState   = Entity::MoveState::WALKING;
+        c.moveState = Entity::MoveState::WALKING;
 
         // Horizontal facing takes priority (matches player.cpp)
         if (std::fabsf(dx) >= std::fabsf(dy))
@@ -159,8 +159,8 @@ namespace
     // Draws the animated sprite for one customer.
     //------------------------------------------------------------------------
     void DrawCustomerSprite(AEGfxVertexList* mesh,
-                            const Sprite::SpriteData& sprite,
-                            const Customer& c)
+        const Sprite::SpriteData& sprite,
+        const Customer& c)
     {
         unsigned int texSlot = 0, tagIndex = 1;
         ResolveAnim(c, texSlot, tagIndex);
@@ -168,10 +168,10 @@ namespace
         if (texSlot < sprite.count && sprite.textures[texSlot])
         {
             Sprite::DrawAnimation(mesh,
-                                  sprite.textures[texSlot],
-                                  c.animState,
-                                  c.position,
-                                  { 100.f, 100.f });
+                sprite.textures[texSlot],
+                c.animState,
+                c.position,
+                { 100.f, 100.f });
         }
     }
 
@@ -181,17 +181,18 @@ namespace
     // flowerIcons — optional array indexed by FlowerType (1–6).
     //------------------------------------------------------------------------
     void DrawCustomerUI(AEGfxVertexList* bubbleMesh, s8 fontId,
-                        const Customer& c, AEGfxTexture** flowerIcons)
+        const Customer& c, AEGfxTexture** flowerIcons,
+        float t = 1.f)
     {
         // ── Patience bar (WAITING only) ──────────────────────────────────────
         if (c.state == CustomerState::WAITING)
         {
-            const float fill  = c.patience / CustomerSystem::PATIENCE_MAX;
+            const float fill = c.patience / CustomerSystem::PATIENCE_MAX;
             const float barCx = c.position.x;
             const float barCy = c.position.y + PBAR_OFFSET_Y;
 
             // Colour: green → yellow → red
-            const float pr = (fill < 0.5f) ? 1.f        : (1.f - fill) * 2.f;
+            const float pr = (fill < 0.5f) ? 1.f : (1.f - fill) * 2.f;
             const float pg = (fill < 0.5f) ? fill * 2.f : 1.f;
 
             AEGfxSetRenderMode(AE_GFX_RM_COLOR);
@@ -220,10 +221,10 @@ namespace
             }
         }
 
-		// -- Patience penalty (WRONG ORDER) — red flash over the customer sprite --
-        
+        // -- Patience penalty (WRONG ORDER) — red flash over the customer sprite --
+
         if (c.receiveOrderResult == ReceiveOrder::WRONG_ORDER) {
-			// Only visual effect, do NOT modify patience here!
+            // Only visual effect, do NOT modify patience here!
             const float flashAlpha = RandRange(0.0f, 0.55f);
             AEGfxSetRenderMode(AE_GFX_RM_COLOR);
             AEGfxSetBlendMode(AE_GFX_BM_BLEND);
@@ -238,8 +239,9 @@ namespace
             AEGfxMeshDraw(bubbleMesh, AE_GFX_MDM_TRIANGLES);
         }
 
-        // ── Order bubble (WAITING + valid order only) ────────────────────────
-        if (c.state != CustomerState::WAITING || c.order == FlowerType::NONE) return;
+        // ── Order bubble — draws while t > 0 so ease-out plays on departure ───
+        if (c.order == FlowerType::NONE) return;
+        if (t <= 0.f) return;
 
         const bool hasModifier = (c.orderModifier != FlowerModifier::NONE);
 
@@ -251,21 +253,21 @@ namespace
 
         // Layout: [ SIDE_PAD | FlowerIcon | ICON_GAP | [Badge | BADGE_GAP |] Text | SIDE_PAD ]
         float tooltipW = BUBBLE_SIDE_PAD + BUBBLE_ICON_SIZE + BUBBLE_ICON_GAP
-                       + textWorldW + BUBBLE_SIDE_PAD;
+            + textWorldW + BUBBLE_SIDE_PAD;
         if (hasModifier)
             tooltipW += BADGE_SIZE + BADGE_GAP;
 
         const float bubbleCx = c.position.x;
         const float bubbleCy = c.position.y + CustomerSystem::BUBBLE_OFFSET_Y;
         const float leftEdge = bubbleCx - tooltipW * 0.5f;
-        const float iconCx   = leftEdge + BUBBLE_SIDE_PAD + BUBBLE_ICON_SIZE * 0.5f;
+        const float iconCx = leftEdge + BUBBLE_SIDE_PAD + BUBBLE_ICON_SIZE * 0.5f;
 
-        float nextX  = leftEdge + BUBBLE_SIDE_PAD + BUBBLE_ICON_SIZE + BUBBLE_ICON_GAP;
+        float nextX = leftEdge + BUBBLE_SIDE_PAD + BUBBLE_ICON_SIZE + BUBBLE_ICON_GAP;
         float badgeCx = 0.f;
         if (hasModifier)
         {
             badgeCx = nextX + BADGE_SIZE * 0.5f;
-            nextX  += BADGE_SIZE + BADGE_GAP;
+            nextX += BADGE_SIZE + BADGE_GAP;
         }
         const float textCx = nextX + textWorldW * 0.5f;
 
@@ -275,24 +277,30 @@ namespace
         AEGfxSetColorToAdd(0.f, 0.f, 0.f, 0.f);
         AEMtx33 sclMtx{}, trsMtx{}, mtx{};
 
-        // Background
-        AEGfxSetTransparency(0.75f);
+        // Background — scales open with t
+        AEGfxSetTransparency(0.75f * t);
         AEGfxSetColorToMultiply(0.1f, 0.1f, 0.1f, 1.f);
-        AEMtx33Scale(&sclMtx, tooltipW, BUBBLE_H);
+        AEMtx33Scale(&sclMtx, tooltipW * t, BUBBLE_H * t);
         AEMtx33Trans(&trsMtx, bubbleCx, bubbleCy);
         AEMtx33Concat(&mtx, &trsMtx, &sclMtx);
         AEGfxSetTransform(mtx.m);
         AEGfxMeshDraw(bubbleMesh, AE_GFX_MDM_TRIANGLES);
 
+        // Content only fades in during the second half of the animation
+        if (t < 0.5f) return;
+        const float contentAlpha = (t - 0.5f) * 2.f;
+
         // Flower icon — texture preferred, coloured square fallback
         const int flowerIdx = static_cast<int>(c.order);
         AEGfxTexture* iconTex = (flowerIcons && flowerIdx >= 1 && flowerIdx <= 6)
-                                ? flowerIcons[flowerIdx] : nullptr;
+            ? flowerIcons[flowerIdx] : nullptr;
         if (iconTex)
         {
+            // drawUICard doesn't expose alpha directly, so set transparency first
+            AEGfxSetTransparency(contentAlpha);
             BasicUtilities::drawUICard(bubbleMesh, iconTex,
-                                       iconCx, bubbleCy,
-                                       BUBBLE_ICON_SIZE, BUBBLE_ICON_SIZE);
+                iconCx, bubbleCy,
+                BUBBLE_ICON_SIZE, BUBBLE_ICON_SIZE);
             // Restore colour mode for subsequent draws
             AEGfxSetRenderMode(AE_GFX_RM_COLOR);
             AEGfxSetBlendMode(AE_GFX_BM_BLEND);
@@ -302,7 +310,7 @@ namespace
         {
             float ir, ig, ib;
             GetFlowerColor(c.order, ir, ig, ib);
-            AEGfxSetTransparency(1.f);
+            AEGfxSetTransparency(contentAlpha);
             AEGfxSetColorToMultiply(ir, ig, ib, 1.f);
             AEMtx33Scale(&sclMtx, BUBBLE_ICON_SIZE, BUBBLE_ICON_SIZE);
             AEMtx33Trans(&trsMtx, iconCx, bubbleCy);
@@ -316,10 +324,15 @@ namespace
         {
             float br, bg, bb;
             if (c.orderModifier == FlowerModifier::FIRE)
-                { br = 1.0f; bg = 0.5f; bb = 0.0f; }
+            {
+                br = 1.0f; bg = 0.5f; bb = 0.0f;
+            }
             else
-                { br = 0.5f; bg = 0.0f; bb = 1.0f; }
+            {
+                br = 0.5f; bg = 0.0f; bb = 1.0f;
+            }
 
+            AEGfxSetTransparency(contentAlpha);
             AEGfxSetColorToMultiply(br, bg, bb, 1.f);
             AEMtx33Scale(&sclMtx, BADGE_SIZE, BADGE_SIZE);
             AEMtx33Trans(&trsMtx, badgeCx, bubbleCy);
@@ -330,8 +343,8 @@ namespace
 
         // Flower name text
         BasicUtilities::drawText(fontId, FlowerName(c.order),
-                                 textCx, bubbleCy,
-                                 TEXT_SCALE, 1.f, 1.f, 1.f, 1.f);
+            textCx, bubbleCy,
+            TEXT_SCALE, 1.f, 1.f, 1.f, contentAlpha);
     }
 
 } // anonymous namespace
@@ -368,15 +381,15 @@ namespace CustomerSystem
     // Init — configure positions and order; does NOT spawn the customer yet
     //========================================================================
     void CustomerSystem_Init(State& s, AEVec2 spawnPos, AEVec2 targetPos,
-                             FlowerType order, FlowerModifier orderMod)
+        FlowerType order, FlowerModifier orderMod)
     {
-        s.spawnPos  = spawnPos;
+        s.spawnPos = spawnPos;
         s.targetPos = targetPos;
-        s.active    = false;
+        s.active = false;
 
-        s.customer.order         = order;
+        s.customer.order = order;
         s.customer.orderModifier = orderMod;
-        s.customer.animState     = Sprite::AnimationState{};
+        s.customer.animState = Sprite::AnimationState{};
     }
 
     //========================================================================
@@ -384,18 +397,18 @@ namespace CustomerSystem
     //========================================================================
     void CustomerSystem_Spawn(State& s)
     {
-        s.customer.position           = s.spawnPos;
-        s.customer.velocity           = {};
-        s.customer.speed              = SPEED;
-        s.customer.facing             = Entity::FaceDirection::RIGHT;
-        s.customer.moveState          = Entity::MoveState::WALKING;
-        s.customer.state              = CustomerState::ARRIVING;
-        s.customer.stateTimer         = 0.f;
-        s.customer.animState          = Sprite::AnimationState{};
-        s.customer.patience           = CustomerSystem::PATIENCE_MAX;
-        s.customer.patienceRanOut     = false;
+        s.customer.position = s.spawnPos;
+        s.customer.velocity = {};
+        s.customer.speed = SPEED;
+        s.customer.facing = Entity::FaceDirection::RIGHT;
+        s.customer.moveState = Entity::MoveState::WALKING;
+        s.customer.state = CustomerState::ARRIVING;
+        s.customer.stateTimer = 0.f;
+        s.customer.animState = Sprite::AnimationState{};
+        s.customer.patience = CustomerSystem::PATIENCE_MAX;
+        s.customer.patienceRanOut = false;
         s.customer.servedSuccessfully = false;
-        s.active                      = true;
+        s.active = true;
     }
 
     //========================================================================
@@ -413,9 +426,9 @@ namespace CustomerSystem
         {
             if (StepToward(c, s.targetPos, dt))
             {
-                c.state      = CustomerState::WAITING;
+                c.state = CustomerState::WAITING;
                 c.stateTimer = 0.f;
-                c.animState  = Sprite::AnimationState{};
+                c.animState = Sprite::AnimationState{};
             }
         }
         else if (c.state == CustomerState::WAITING)
@@ -425,11 +438,11 @@ namespace CustomerSystem
 
             if (c.patience <= 0.f)
             {
-                c.patience       = 0.f;
+                c.patience = 0.f;
                 c.patienceRanOut = true;
-                c.moveState      = Entity::MoveState::WALKING;
-                c.state          = CustomerState::LEAVING;
-                c.stateTimer     = 0.f;
+                c.moveState = Entity::MoveState::WALKING;
+                c.state = CustomerState::LEAVING;
+                c.stateTimer = 0.f;
             }
         }
         else if (c.state == CustomerState::LEAVING)
@@ -458,10 +471,11 @@ namespace CustomerSystem
     //========================================================================
     // DrawUI — patience bar + order bubble (call after PlayerSystem::Draw)
     //========================================================================
-    void CustomerSystem_DrawUI(const State& s, s8 fontId, AEGfxTexture** flowerIcons)
+    void CustomerSystem_DrawUI(const State& s, s8 fontId, AEGfxTexture** flowerIcons,
+        float t)
     {
         if (!s.active) return;
-        DrawCustomerUI(s.bubbleMesh, fontId, s.customer, flowerIcons);
+        DrawCustomerUI(s.bubbleMesh, fontId, s.customer, flowerIcons, t);
     }
 
     //========================================================================
@@ -489,9 +503,9 @@ namespace CustomerSystem
     {
         if (!s.active) return;
         s.customer.servedSuccessfully = true;
-        s.customer.moveState          = Entity::MoveState::WALKING;
-        s.customer.state              = CustomerState::LEAVING;
-        s.customer.stateTimer         = 0.f;
+        s.customer.moveState = Entity::MoveState::WALKING;
+        s.customer.state = CustomerState::LEAVING;
+        s.customer.stateTimer = 0.f;
     }
 
     //============================================================================
@@ -512,9 +526,9 @@ namespace CustomerSystem
         {
             if (StepToward(c, sl.targetPos, dt))
             {
-                c.state      = CustomerState::WAITING;
+                c.state = CustomerState::WAITING;
                 c.stateTimer = 0.f;
-                c.animState  = Sprite::AnimationState{};
+                c.animState = Sprite::AnimationState{};
             }
         }
         else if (c.state == CustomerState::WAITING)
@@ -527,11 +541,11 @@ namespace CustomerSystem
             {
                 c.patience -= 5.f;
                 c.receiveOrderResult = ReceiveOrder::NO_ORDER;
-				
+
                 std::cerr << "Customer received wrong order! Patience left with " << c.patience << " seconds.\n";
 
             }
-            
+
             if (c.patience <= 0.f)
             {
                 c.patience = 0.f;
@@ -587,18 +601,18 @@ namespace CustomerSystem
     // spawnTimer starts at 0 so the first customer appears on the first Update.
     //========================================================================
     void CustomerPool_Init(PoolState& p, AEVec2 spawnPos,
-                           const AEVec2* targets, int targetCount)
+        const AEVec2* targets, int targetCount)
     {
-        p.spawnPoint  = spawnPos;
-        p.spawnTimer  = 0.f;
+        p.spawnPoint = spawnPos;
+        p.spawnTimer = 0.f;
 
         // Copy target positions and reset occupancy flags
         p.targetCount = (targetCount > PoolState::MAX_TARGETS)
-                        ? PoolState::MAX_TARGETS : targetCount;
+            ? PoolState::MAX_TARGETS : targetCount;
         for (int i = 0; i < p.targetCount; ++i)
         {
             p.targetPositions[i] = targets[i];
-            p.targetOccupied[i]  = false;
+            p.targetOccupied[i] = false;
         }
 
         // Reset all customer slots
@@ -645,31 +659,31 @@ namespace CustomerSystem
                     // Modifier distribution: 60% NONE, 20% FIRE, 20% POISON
                     FlowerModifier orderMod = FlowerModifier::NONE;
                     const int roll = rand() % 10;
-                    if      (roll >= 8) orderMod = FlowerModifier::FIRE;
+                    if (roll >= 8) orderMod = FlowerModifier::FIRE;
                     else if (roll >= 6) orderMod = FlowerModifier::POISON;
 
                     // Initialise the slot
-                    PoolState::Slot& sl   = p.slots[slotIdx];
-                    sl.spawnPos           = p.spawnPoint;
-                    sl.targetPos          = p.targetPositions[chosenIdx];
-                    sl.targetIndex        = chosenIdx;
-                    sl.active             = true;
+                    PoolState::Slot& sl = p.slots[slotIdx];
+                    sl.spawnPos = p.spawnPoint;
+                    sl.targetPos = p.targetPositions[chosenIdx];
+                    sl.targetIndex = chosenIdx;
+                    sl.active = true;
 
                     // Reset customer data
-                    sl.customer                    = Customer{};
-                    sl.customer.position           = p.spawnPoint;
-                    sl.customer.velocity           = {};
-                    sl.customer.speed              = SPEED;
-                    sl.customer.facing             = Entity::FaceDirection::RIGHT;
-                    sl.customer.moveState          = Entity::MoveState::WALKING;
-                    sl.customer.state              = CustomerState::ARRIVING;
-                    sl.customer.stateTimer         = 0.f;
-                    sl.customer.animState          = Sprite::AnimationState{};
-                    sl.customer.patience           = PATIENCE_MAX;
-                    sl.customer.patienceRanOut     = false;
+                    sl.customer = Customer{};
+                    sl.customer.position = p.spawnPoint;
+                    sl.customer.velocity = {};
+                    sl.customer.speed = SPEED;
+                    sl.customer.facing = Entity::FaceDirection::RIGHT;
+                    sl.customer.moveState = Entity::MoveState::WALKING;
+                    sl.customer.state = CustomerState::ARRIVING;
+                    sl.customer.stateTimer = 0.f;
+                    sl.customer.animState = Sprite::AnimationState{};
+                    sl.customer.patience = PATIENCE_MAX;
+                    sl.customer.patienceRanOut = false;
                     sl.customer.servedSuccessfully = false;
-                    sl.customer.order              = orderType;
-                    sl.customer.orderModifier      = orderMod;
+                    sl.customer.order = orderType;
+                    sl.customer.orderModifier = orderMod;
 
                     p.targetOccupied[chosenIdx] = true;
                 }
@@ -701,12 +715,14 @@ namespace CustomerSystem
     //========================================================================
     // CustomerPool_DrawUI — draw patience bars + order bubbles (after player)
     //========================================================================
-    void CustomerPool_DrawUI(const PoolState& p, s8 fontId, AEGfxTexture** flowerIcons)
+    void CustomerPool_DrawUI(const PoolState& p, s8 fontId, AEGfxTexture** flowerIcons,
+        const float* tooltipT)
     {
         for (int i = 0; i < POOL_MAX; ++i)
         {
             if (!p.slots[i].active) continue;
-            DrawCustomerUI(p.bubbleMesh, fontId, p.slots[i].customer, flowerIcons);
+            const float t = tooltipT ? tooltipT[i] : 1.f;
+            DrawCustomerUI(p.bubbleMesh, fontId, p.slots[i].customer, flowerIcons, t);
         }
     }
 
@@ -737,12 +753,12 @@ namespace CustomerSystem
     //   Returns -1 if no WAITING customer is within SERVE_RADIUS.
     //========================================================================
     int CustomerPool_TryServe(PoolState& p, FlowerType type, FlowerModifier mod,
-                          AEVec2 playerPos)
+        AEVec2 playerPos)
     {
         constexpr float SERVE_RADIUS = 120.f;  // [TUNE] world-unit interaction reach
 
-        int   bestSlot  = -1;
-        float bestDist  = SERVE_RADIUS;
+        int   bestSlot = -1;
+        float bestDist = SERVE_RADIUS;
         bool  anyInRange = false;
 
         for (int i = 0; i < POOL_MAX; ++i)
@@ -750,8 +766,8 @@ namespace CustomerSystem
             const PoolState::Slot& sl = p.slots[i];
             if (!sl.active || sl.customer.state != CustomerState::WAITING) continue;
 
-            float dx   = sl.customer.position.x - playerPos.x;
-            float dy   = sl.customer.position.y - playerPos.y;
+            float dx = sl.customer.position.x - playerPos.x;
+            float dy = sl.customer.position.y - playerPos.y;
             float dist = std::sqrt(dx * dx + dy * dy);
 
             if (dist < SERVE_RADIUS)
@@ -780,9 +796,9 @@ namespace CustomerSystem
 
         // Correct match — serve the customer and begin their LEAVING walk
         sl.customer.servedSuccessfully = true;
-        sl.customer.moveState          = Entity::MoveState::WALKING;
-        sl.customer.state              = CustomerState::LEAVING;
-        sl.customer.stateTimer         = 0.f;
+        sl.customer.moveState = Entity::MoveState::WALKING;
+        sl.customer.state = CustomerState::LEAVING;
+        sl.customer.stateTimer = 0.f;
 
         return (mod == FlowerModifier::NONE) ? GOLD_REWARD_PLAIN : GOLD_REWARD_MODIFIED;
     }

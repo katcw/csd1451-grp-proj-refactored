@@ -45,21 +45,21 @@ enum class ReceiveOrder { NO_ORDER, CORRECT_ORDER, WRONG_ORDER };
 class Customer : public Entity::EntityBase
 {
 public:
-    CustomerState          state              = CustomerState::ARRIVING;
-    FlowerType             order              = FlowerType::NONE;
-    FlowerModifier         orderModifier      = FlowerModifier::NONE;  // required modifier (NONE = plain)
-	ReceiveOrder           receiveOrderResult = ReceiveOrder::NO_ORDER;  // result of player's attempt to serve this customer
-    float                  stateTimer         = 0.f;
-    Sprite::AnimationState animState          = {};
-    float                  patience           = CustomerSystem::PATIENCE_MAX;
-    bool                   patienceRanOut     = false;
+    CustomerState          state = CustomerState::ARRIVING;
+    FlowerType             order = FlowerType::NONE;
+    FlowerModifier         orderModifier = FlowerModifier::NONE;  // required modifier (NONE = plain)
+    ReceiveOrder           receiveOrderResult = ReceiveOrder::NO_ORDER;  // result of player's attempt to serve this customer
+    float                  stateTimer = 0.f;
+    Sprite::AnimationState animState = {};
+    float                  patience = CustomerSystem::PATIENCE_MAX;
+    bool                   patienceRanOut = false;
     bool                   servedSuccessfully = false;
 };
 
 namespace CustomerSystem
 {
-    constexpr float SPEED       = 120.f;
-    constexpr float ARRIVE_EPS  = 2.f;     // distance threshold to snap to target
+    constexpr float SPEED = 120.f;
+    constexpr float ARRIVE_EPS = 2.f;     // distance threshold to snap to target
 
     // Vertical offset of order bubble in world coordinates
     constexpr float BUBBLE_OFFSET_Y = 80.f;
@@ -70,13 +70,13 @@ namespace CustomerSystem
     struct State
     {
         Customer           customer;
-        AEVec2             spawnPos   = {};
-        AEVec2             targetPos  = {};
-        bool               active     = false;
+        AEVec2             spawnPos = {};
+        AEVec2             targetPos = {};
+        bool               active = false;
 
         Sprite::SpriteData sprite;
-        AEGfxVertexList*   spriteMesh = nullptr;
-        AEGfxVertexList*   bubbleMesh = nullptr;
+        AEGfxVertexList* spriteMesh = nullptr;
+        AEGfxVertexList* bubbleMesh = nullptr;
     };
 
     // Load — allocates GPU resources (textures, meshes). Call once in Load().
@@ -85,8 +85,8 @@ namespace CustomerSystem
     // Init — configures spawn/target positions and desired flower order.
     //        Does NOT spawn the customer yet; call Spawn() when ready.
     void CustomerSystem_Init(State& s, AEVec2 spawnPos, AEVec2 targetPos,
-                             FlowerType order,
-                             FlowerModifier orderMod = FlowerModifier::NONE);
+        FlowerType order,
+        FlowerModifier orderMod = FlowerModifier::NONE);
 
     // Spawn — places the customer at spawnPos and begins the ARRIVING walk.
     //         May be called repeatedly (e.g. for a new customer each round).
@@ -103,7 +103,8 @@ namespace CustomerSystem
     //          Call after PlayerSystem::Draw() so tooltips appear above the player.
     //          flowerIcons: optional texture array indexed by FlowerType (1–6).
     void CustomerSystem_DrawUI(const State& s, s8 fontId,
-                               AEGfxTexture** flowerIcons = nullptr);
+        AEGfxTexture** flowerIcons = nullptr,
+        float t = 1.f);
 
     // Free — releases mesh memory. Call in the state's Free().
     void CustomerSystem_Free(State& s);
@@ -124,10 +125,10 @@ namespace CustomerSystem
     // Multi-customer Pool (Level 1)
     //========================================================================
 
-    constexpr int   POOL_MAX           = 5;     // [TUNE] max concurrent customers
+    constexpr int   POOL_MAX = 5;     // [TUNE] max concurrent customers
     constexpr float SPAWN_INTERVAL_MIN = 8.f;   // [TUNE] min seconds between spawns
     constexpr float SPAWN_INTERVAL_MAX = 15.f;  // [TUNE] max seconds between spawns
-    constexpr int   GOLD_REWARD_PLAIN    = 40;  // [TUNE] gold for correct plain flower
+    constexpr int   GOLD_REWARD_PLAIN = 40;  // [TUNE] gold for correct plain flower
     constexpr int   GOLD_REWARD_MODIFIED = 65;  // [TUNE] gold for correct modified flower
 
     // Manages POOL_MAX customers sharing one loaded sprite sheet.
@@ -135,16 +136,16 @@ namespace CustomerSystem
     {
         // Shared GPU resources — loaded once for all slots
         Sprite::SpriteData sprite;
-        AEGfxVertexList*   spriteMesh = nullptr;
-        AEGfxVertexList*   bubbleMesh = nullptr;
+        AEGfxVertexList* spriteMesh = nullptr;
+        AEGfxVertexList* bubbleMesh = nullptr;
 
         // Per-customer instance data (no GPU resources)
         struct Slot
         {
             Customer customer;
-            AEVec2   spawnPos    = {};
-            AEVec2   targetPos   = {};
-            bool     active      = false;
+            AEVec2   spawnPos = {};
+            AEVec2   targetPos = {};
+            bool     active = false;
             int      targetIndex = -1;  // which entry in targetPositions[] is occupied
         };
         Slot slots[POOL_MAX];
@@ -155,8 +156,8 @@ namespace CustomerSystem
         bool   targetOccupied[MAX_TARGETS] = {};
         int    targetCount = 0;
 
-        AEVec2 spawnPoint  = {};
-        float  spawnTimer  = 0.f;   // counts down; ≤ 0 → may spawn next customer
+        AEVec2 spawnPoint = {};
+        float  spawnTimer = 0.f;   // counts down; ≤ 0 → may spawn next customer
     };
 
     // Load — allocates shared GPU resources. Call once in the state's Load().
@@ -165,7 +166,7 @@ namespace CustomerSystem
     // Init — sets spawn point, copies target positions, resets all slots.
     //        spawnTimer starts at 0 so the first customer spawns on the first Update.
     void CustomerPool_Init(PoolState& p, AEVec2 spawnPos,
-                           const AEVec2* targets, int targetCount);
+        const AEVec2* targets, int targetCount);
 
     // Update — ticks spawn timer, spawns new customers, and updates all active slots.
     void CustomerPool_Update(PoolState& p, float dt);
@@ -175,8 +176,11 @@ namespace CustomerSystem
 
     // DrawUI — draws patience bars and order bubbles (call after PlayerSystem::Draw).
     //          flowerIcons: optional texture array indexed by FlowerType (1–6).
+    //          tooltipT: optional per-slot ease-in/out values [0,1]; pass nullptr
+    //                    to draw all bubbles fully opaque (legacy behaviour).
     void CustomerPool_DrawUI(const PoolState& p, s8 fontId,
-                             AEGfxTexture** flowerIcons = nullptr);
+        AEGfxTexture** flowerIcons = nullptr,
+        const float* tooltipT = nullptr);
 
     // Free — releases mesh memory. Call in the state's Free().
     void CustomerPool_Free(PoolState& p);
@@ -189,5 +193,5 @@ namespace CustomerSystem
     //   In-range wrong → return 0 (customer stays, no serve).
     //   None in range  → return -1.
     int CustomerPool_TryServe(PoolState& p, FlowerType type, FlowerModifier mod,
-                              AEVec2 playerPos);
+        AEVec2 playerPos);
 }

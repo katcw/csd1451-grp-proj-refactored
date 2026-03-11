@@ -111,11 +111,26 @@ namespace BasicUtilities
 	*/
 	/******************************************************************************/
 	void drawTooltip(AEGfxVertexList* mesh,
-	                 AEGfxTexture* iconTex,
-	                 float ir, float ig, float ib,
-	                 const char* label,
-	                 float cx, float cy,
-	                 s8 fontId,
-	                 float scale   = 0.55f,
-	                 float bgAlpha = 0.85f);
+		AEGfxTexture* iconTex,
+		float ir, float ig, float ib,
+		const char* label,
+		float cx, float cy,
+		s8 fontId,
+		float scale  = 0.55f,
+		float bgAlpha = 0.85f,
+		float t      = 1.f);   
+
+	// Ticks t toward 1 when active, toward 0 when not. Clamps to [0,1].
+	// Call once per frame. speed=6 gives ~0.17s transition.
+	inline void tickEase(float& t, bool active, float dt, float speed = 6.f)
+	{
+		t += active ? dt * speed : -dt * speed;
+		t = t < 0.f ? 0.f : t > 1.f ? 1.f : t;
+	}
+
+	// Smoothstep — apply to t before passing to any draw function.
+	inline float smoothstep(float t)
+	{
+		return t * t * (3.f - 2.f * t);
+	}
 }
