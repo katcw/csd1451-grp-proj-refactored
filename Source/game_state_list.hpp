@@ -19,5 +19,6 @@ enum gameState
 	GS_PLAY,
 	GS_TUTORIAL,
 	GS_LEVEL1,
+	GS_RUNE_TEST,
 	GS_RESTART
 };

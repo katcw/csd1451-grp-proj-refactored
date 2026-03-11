@@ -21,6 +21,7 @@
     <ClCompile Include="..\Source\gold.cpp" />
     <ClCompile Include="..\Source\particle_system.cpp" />
     <ClCompile Include="..\Source\plant_system.cpp" />
+    <ClCompile Include="..\Source\rune_minigame.cpp" />
     <ClCompile Include="..\Source\time_of_day.cpp" />
     <ClCompile Include="..\source\splash_state.cpp" />
     <ClCompile Include="..\Source\sprite.cpp" />
@@ -42,6 +43,7 @@
     <ClInclude Include="..\Source\item_types.hpp" />
     <ClInclude Include="..\Source\particle_system.hpp" />
     <ClInclude Include="..\Source\plant_system.hpp" />
+    <ClInclude Include="..\Source\rune_minigame.hpp" />
     <ClInclude Include="..\Source\time_of_day.hpp" />
     <ClInclude Include="..\source\splash_state.hpp" />
     <ClInclude Include="..\Source\sprite.hpp" />
