@@ -343,6 +343,8 @@ namespace BasicUtilities
 		AEGfxTexture* GetTextureForState(Entity::MoveState state, bool isHolding, AEGfxTexture* animArray[]);
 
 	}
+
+	void Draw_UI_Element(AEGfxVertexList* mesh, AEGfxTexture* texture, AEMtx33& transform);
 }
 
 #endif // UTILITIES_HPP

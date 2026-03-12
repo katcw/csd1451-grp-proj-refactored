@@ -22,7 +22,7 @@ namespace plantSystem
     constexpr int   MAX_PLANTS       = 6;
     constexpr float INTERACT_RADIUS  = 100.f;  // [LEGACY] kept for PlantSystem_NearestPlant (watering)
     constexpr float BASE_GROWTH_RATE = 0.04f;  // Progress per second
-    constexpr float WATER_MULTIPLIER = 3.0f;   // growth multiplier while watered
+    constexpr float WATER_MULTIPLIER = 6.0f;   // growth multiplier while watered
     constexpr float WATER_MAX        = 10.f;   // seconds of water in the can
     constexpr float WATER_DRAIN_RATE = 1.f;    // units/sec while Q is held
 

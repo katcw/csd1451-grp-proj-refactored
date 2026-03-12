@@ -14,6 +14,7 @@
 #include "main_menu.hpp"
 #include "game_state_manager.hpp"
 #include "game_state_list.hpp"
+#include "sprite.hpp"
 #include "utilities.hpp"
 
 namespace Sprite = BasicUtilities::Sprite;
