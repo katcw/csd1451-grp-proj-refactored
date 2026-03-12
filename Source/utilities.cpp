@@ -262,7 +262,7 @@ namespace BasicUtilities
         return data;
     }
 
-	namespace Sprite
+    namespace Sprite
     {
         /**
              * @brief Loads all sprite metadata from Aseprite JSON export.
@@ -687,17 +687,4 @@ namespace BasicUtilities
             return result;
         }
     }
-
-    // Draws UI element
-    void Draw_UI_Element(AEGfxVertexList* mesh, AEGfxTexture* texture, AEMtx33& transform)
-    {
-        AEGfxSetColorToMultiply(1.0f, 1.0f, 1.0f, 1.0f);
-        AEGfxSetColorToAdd(0.0f, 0.0f, 0.0f, 0.0f);
-        AEGfxSetBlendMode(AE_GFX_BM_BLEND);
-        AEGfxSetTransparency(1.0f);
-        AEGfxTextureSet(texture, 0, 0);
-        AEGfxSetTransform(transform.m);
-        AEGfxMeshDraw(mesh, AE_GFX_MDM_TRIANGLES);
-    }
-
 }
