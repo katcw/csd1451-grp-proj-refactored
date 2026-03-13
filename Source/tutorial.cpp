@@ -468,7 +468,7 @@ void Tutorial_Update()
             //   Y-axis : block from top only; allow overlap from below
             //------------------------------------------------------------------
             AEVec2 prevPos = PlayerSystem::p1->GetCoordinates();
-            PlayerSystem::Update(collisionMap, dt);
+            PlayerSystem::Update(dt);
 
             Entity::Update();
 

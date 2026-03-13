@@ -14,12 +14,17 @@
 #define ENTITY_HPP
 
 #include "AEEngine.h"
+#include <vector>
+#include "collision.hpp"
 
-// ============================================================================
+ // ============================================================================
 //                          Definitions and aliases
 // ============================================================================
 #define MAX_ENTITIES 100           ///< Maximum number of entities stored in the global array
 using ID = unsigned int;           ///< Type alias for entity IDs
+
+///TEMP
+#define TILE_SIZE 50.0f
 
 // =============================================================================
 //                              Entity namespace
@@ -63,7 +68,25 @@ namespace Entity
 	};
 
 	/**
-	 * @brief Integer grid index used for tile / map lookups.
+	 * @brief Selects which sprite draw function the render queue uses for this entity.
+	 *
+	 * @details Each value maps to a different Sprite utility function:
+	 *   - NONE        — Entity is not drawn by the generic render queue.
+	 *                    Use this for entities with custom draw code (e.g. player).
+	 *   - STATIC      — Single full-texture quad via Sprite::DrawSprite.
+	 *   - ANIM_GRID   — Grid-based spritesheet via Sprite::UpdateAnimation(row, cols) + DrawAnimation.
+	 *   - ANIM_JSON   — Aseprite JSON spritesheet via Sprite::UpdateAnimation(JMeta, tag) + DrawAnimation.
+	 */
+	 //enum class DrawMode
+	 //{
+	 //	NONE,			///< Not drawn by render queue (sub-system handles its own draw)
+	 //	STATIC,			///< Static single-texture sprite (DrawSprite)
+	 //	ANIM_GRID,		///< Grid-based spritesheet animation (UpdateAnimation row/cols overload)
+	 //	ANIM_JSON		///< Aseprite JSON-driven animation (UpdateAnimation JMeta overload)
+	 //};
+
+	/**
+	 * @brief Integer grid index for pathfinding and tile-based logic.
 	 */
 	struct Index
 	{
@@ -71,7 +94,45 @@ namespace Entity
 		int y;			///< grid Y index
 	};
 
-	/******************************************************************************/
+	/**
+	* @brief Node for pathfinding algorithms, containing grid index and cost values.
+	*/
+	struct Node
+	{
+		Index index;		///< Grid index of this node
+		int gCost;			///< Cost from start to this node
+		int hCost;			///< Heuristic cost from this node to target
+		int fCost;			///< Total cost (gCost + hCost)
+		Node* parent;		///< Pointer to parent node for path reconstruction
+	};
+
+	// =========================================================================
+	//                          Utility helpers
+	// =========================================================================
+
+	/**
+	 * @brief Converts a grid index to world-space tile centre using the active collision map.
+	 * @param[in] idx Grid index to convert.
+	 * @return World position at the centre of the tile. Returns (0,0) if no map is loaded.
+	 */
+	AEVec2 IndexToWorld(Index idx);
+
+	/**
+	 * @brief Returns the adjacent grid index one step in the given direction.
+	 * @param[in] idx  Starting grid index.
+	 * @param[in] dir  Direction to step.
+	 * @return The neighbouring index. Returns idx unchanged if dir is LAST.
+	 */
+	Index AdjacentIndex(Index idx, FaceDirection dir);
+
+	/**
+	 * @brief Tests whether a grid index is within map bounds and is not solid.
+	 * @param[in] idx Grid index to test.
+	 * @return true if the tile is passable, false if solid or out of bounds.
+	 */
+	bool IsTilePassable(Index idx);
+
+	/******************************************************************************/ 
 	/*
 	@brief  Base class shared by all movable characters (player, NPCs, etc.).
 	        Any character class that inherits from this automatically receives
@@ -112,6 +173,7 @@ namespace Entity
 		// Grid indices
 		Index              current{ 0, 0 };					///< Current grid index
 		Index              next{ 0, 0 };					///< Next grid index
+		std::vector<Node>  path;							///< Current path of grid indices for pathfinding
 
 		// Movement / animation state
 		float              speed{ 0.0f };							///< Movement speed (pixels per second)
@@ -122,7 +184,29 @@ namespace Entity
 		// Misc flags
 		bool			   active{ true };					///< Whether the entity is active (can be used for soft deletion)
 		bool 			   isAI{ false };					///< Whether the entity is AI-controlled
-		bool               holding{ false };                ///< Whether entity holds an item
+		bool               holding{ false };                ///< Whether entity holds an item (TO BE REMOVED)
+
+		// Rendering
+		//AEGfxVertexList*   mesh{ nullptr };				///< Mesh pointer for rendering
+		//AEGfxTexture*      texture{ nullptr };			///< Primary texture pointer
+		//AEVec2             drawScale{ 64.0f, 64.0f };		///< Sprite draw size in world units (width, height)
+		//DrawMode           drawMode{ DrawMode::NONE };	///< Which sprite draw function to use
+
+
+		// ------------------------------------------------------------------
+		//                    Private path helpers
+		// ------------------------------------------------------------------
+
+		/**
+		 * @brief Snaps entity to the current target node, pops it from the path,
+		 *        and prepares the next node if one exists.
+		 *
+		 * @details Used internally by FollowPath() to avoid duplicating the
+		 *          snap-and-advance logic in multiple branches.
+		 *
+		 * @return true if more nodes remain in the path, false if path is now empty.
+		 */
+		bool ConsumePathNode();
 
 	public:
 		// ------------------------------------------------------------------
@@ -146,12 +230,27 @@ namespace Entity
 		 * @param[in] nextCoord Initial next/target coordinates.
 		 * @param[in] currentIdx Initial grid index.
 		 * @param[in] nextIdx  Initial next grid index.
-		 * @param[in] spd      Movement speed in ction.
+		 * @param[in] spd      Movement speed in pixels per second.
+		 * @param[in] dir      Initial facing direction.
 		 * @param[in] st       Initial movement state.
+		 * @param[in] act      Whether the entity starts active.
+		 * @param[in] AI       Whether the entity is AI-controlled.
 		 * @param[in] hold     Initial holding state.
+		 * @param[in] mesh_    Optional mesh pointer for rendering (default nullptr).
 		 */
 		EntityBase(ID id_, EntityType type, AEVec2 coord, AEVec2 nextCoord, Index currentIdx, Index nextIdx,
-			float spd, FaceDirection dir, MoveState st, bool act = true, bool AI = false, bool hold = false);
+			float spd, FaceDirection dir, MoveState st, bool act = true, bool AI = false, bool hold = false
+		/*, AEGfxVertexList* mesh_ = nullptr*/);
+
+		/**
+		 * @brief Static prop constructor. Only requires position and type.
+		 *        Grid index is computed from position. Speed/velocity/facing are zeroed.
+		 *
+		 * @param[in] id_      Unique identifier.
+		 * @param[in] type_    Entity type (typically PROP).
+		 * @param[in] worldPos World position — grid index is derived automatically.
+		 */
+		EntityBase(ID id_, EntityType type_, AEVec2 worldPos /*, AEGfxVertexList* mesh_ = nullptr*/);
 
 		/**
 		 * @brief Virtual destructor to allow safe deletion via base pointer.
@@ -186,6 +285,10 @@ namespace Entity
 		 */
 		AEVec2 GetNextCoordinates() const;
 
+		/**
+		 * @brief Returns the current velocity.
+		 * @return AEVec2 velocity (x, y) in pixels per second.
+		 */
 		AEVec2 GetVelocity() const;
 
 		/**
@@ -237,16 +340,29 @@ namespace Entity
 		bool IsAI() const;
 
 		/**
-		* @brief Resolves facing direction based on the delta between current and next coordinates.
-		* 
-		* @details This can be used by AI or movement systems to automatically update the facing direction based on movement.
+		* @brief Returns whether current and next coordinates are the same
+		* @return true if coordinates are the same, false otherwise
 		*/
-		void ResolveDirection();
+		bool IsCoordsSame() const;
+
+		/**
+		* @brief Returns if current and next index are the same
+		* @return true if Indexes are the same, false otherwise
+		*/
+		bool IsIndexSame() const;
+
+		//AEGfxVertexList* GetMesh() const;
+		//AEGfxTexture* GetTexture() const;
+		//AEVec2 GetDrawScale() const;
+		//DrawMode GetDrawMode() const;
 
 		// ------------------------------------------------------------------
 		//                     Reference Getters (For AI)
 		// ------------------------------------------------------------------
 
+		/**
+		* @brief Reference to the current coordinates.
+		*/
 		AEVec2& RefCoordinates();
 
 		/**
@@ -285,6 +401,9 @@ namespace Entity
 		*/
 		bool& RefActive();
 
+		/**
+		* @brief Reference to the facing direction of the entity.
+		*/
 		FaceDirection& RefFaceDirection();
 
 		// ------------------------------------------------------------------
@@ -292,84 +411,163 @@ namespace Entity
 		// ------------------------------------------------------------------
 
 		/**
-		 * @brief Set entity unique id.
-		 * @param[in] id_ New id value (0 = unassigned).
+		 * @brief Assign a unique identifier to this entity.
+		 * @param[in] id_ New ID to assign. Passing 0 indicates "unassigned".
 		 */
 		void SetId(ID id_);
 
 		/**
-		* @brief Sets the entity type.
-		* @param[in] type EntityType enum value representing the new type.
-		*/
+		 * @brief Set the entity's categorical type (player, NPC, item, etc.).
+		 * @param[in] type New EntityType value.
+		 */
 		void SetType(EntityType type);
 
 		/**
-		 * @brief Sets the coordinates.
-		 * @param[in] coord coordinates (x, y).
+		 * @brief Set the queued/target world coordinates for the entity.
+		 * @param[in] coord Target coordinates (x, y) in world pixels.
+		 */
+		void SetNextCoordinates(AEVec2 coord);
+
+		/**
+		 * @brief Immediately set the entity's current world coordinates.
+		 * @param[in] coord New world position (x, y) in pixels.
 		 */
 		void SetCoordinates(AEVec2 coord);
 
 		/**
-		 * @brief Sets the queued/target coordinates.
-		 * @param[in] coord Next coordinates (x, y).
+		 * @brief Set the current frame velocity for the entity.
+		 * @param[in] vel Velocity vector (pixels per second).
 		 */
-		void SetNextCoordinates(AEVec2 coord);
-
 		void SetVelocity(AEVec2 vel);
 
 		/**
-		* @brief Sets the current world coordinates.
-		* @details This sets both `position` and `nextCoordinates` to the same value,
-		*/
-		void Move();
-
-		/**
-		 * @brief Sets the current grid index.
-		 * @param[in] idx New current index.
+		 * @brief Update the entity's current grid index.
+		 * @param[in] idx New grid index representing the current tile.
 		 */
 		void SetCurrentIndex(Index idx);
 
 		/**
-		 * @brief Sets the next grid index.
-		 * @param[in] idx New next index.
+		 * @brief Update the entity's next grid index (planned target tile).
+		 * @param[in] idx Grid index representing the next tile to move toward.
 		 */
 		void SetNextIndex(Index idx);
 
 		/**
-		 * @brief Sets the entity's movement speed.
+		 * @brief Set the entity's movement speed.
 		 * @param[in] spd Speed in pixels per second.
 		 */
 		void SetSpeed(float spd);
 
 		/**
-		 * @brief Sets the facing direction.
+		 * @brief Set the entity's facing direction.
 		 * @param[in] dir New facing direction.
+		 * @details Also updates lastDirection so animations remember the most recent orientation.
 		 */
 		void SetFaceDirection(FaceDirection dir);
 
 		/**
-		 * @brief Sets the movement state.
-		 * @param[in] state New movement state.
+		 * @brief Set the entity's movement state (walking, idle, etc.).
+		 * @param[in] state New MoveState value.
 		 */
 		void SetMoveState(MoveState state);
 
 		/**
-		 * @brief Sets whether the entity is holding an item.
-		 * @param[in] hold true if holding, false otherwise.
+		 * @brief Set whether the entity is currently holding an item.
+		 * @param[in] hold True when the entity holds an item, false otherwise.
 		 */
 		void SetHolding(bool hold);
 
 		/**
-		* @brief Sets whether the entity is active.
-		* @param[in] act true to set active, false to set inactive.
-		*/
+		 * @brief Activate or deactivate the entity.
+		 * @param[in] act True to mark as active, false to mark as inactive.
+		 */
 		void SetActive(bool act);
 
 		/**
-		* @brief Sets whether entity is AI.
-		* @param[in] ai true if entity is AI-controlled, false otherwise.
-		*/
+		 * @brief Mark the entity as AI-controlled or player-controlled.
+		 * @param[in] ai True when controlled by AI, false for player control.
+		 */
 		void SetAI(bool ai);
+
+		//void SetMesh(AEGfxVertexList* m);
+		//void SetTexture(AEGfxTexture* tex);
+		//void SetDrawScale(AEVec2 scale);
+		//void SetDrawMode(DrawMode mode);
+
+		// =========================================================================
+		//                  Update functions (position, index, etc.)
+		// =========================================================================
+
+		/**
+		* @brief Resolves facing direction based on the delta between current and next coordinates.
+		* @details Used by AI or movement systems to automatically update facing direction based on movement.
+		*/
+		void ResolveDirection();
+
+		/**
+		 * @brief Commit the queued next coordinates as the current position and update the grid index.
+		 */
+		void Move();
+
+		/**
+		* @brief Update the entity's current grid index based on its world coordinates and the collision map.
+		* @details Should be called after moving the entity to keep the grid index in sync with its position.
+		*/
+		void UpdateIndex();
+
+		// ------------------------------------------------------------------
+		//                    Path manipulation helpers
+		// ------------------------------------------------------------------
+
+		/**
+		 * @brief Clears the path and releases memory used by the container.
+		 * @post After calling this, IsPathEmpty() will return true.
+		 */
+		void ClearPath();
+
+		/**
+		 * @brief Query whether the current path is empty.
+		 * @return true if no nodes are stored in the path, false otherwise.
+		 */
+		bool IsPathEmpty() const;
+
+		/**
+		 * @brief Returns a const reference to the internal path vector.
+		 * @note Use this to inspect the planned nodes without modifying them.
+		 */
+		const std::vector<Node>& GetPath() const;
+
+		/**
+		 * @brief Returns a mutable reference to the internal path vector.
+		 * @note Allows path modification by external systems.
+		 */
+		std::vector<Node>& RefPath();
+
+		/**
+		 * @brief Computes a new A* path from the entity's current index to its next index.
+		 * @details Clears any existing path before computing. The resulting path is stored
+		 *          internally with back() == next step so FollowPath() can consume it.
+		 * @return true if a valid path was found, false otherwise (path left empty).
+		 */
+		bool SetPath();
+
+		/**
+		 * @brief Append a node to the end of the path.
+		 * @param[in] n Node to push onto the path.
+		 */
+		void PushPathNode(const Node& n);
+
+		/**
+		* @brief Moves the entity along its stored path for the current frame.
+		*
+		* @details Computes the displacement toward the next path node using the entity's
+		*          speed and the given delta time. Snaps to the node and advances to the
+		*          next one if the displacement would overshoot.
+		*
+		* @param[in] dt Frame delta time in seconds.
+		* @return true if the entity moved or consumed a node, false if there was no path or dt was invalid.
+		*/
+		bool FollowPath();
 	};
 
 	//=============================================================================
@@ -391,7 +589,6 @@ namespace Entity
 	 * @brief Attempts to add an entity pointer into the first free slot.
 	 * @param[in] e Pointer to an EntityBase (usually a derived instance).
 	 * @return true if entity was added, false if no free slot was available.
-	 * @note Ownership: the global array becomes responsible for deleting the pointer.
 	 */
 	bool AddEntity(EntityBase* e);
 
@@ -399,14 +596,13 @@ namespace Entity
 	* @brief Adds an entity pointer at a specific index if the slot is free.
 	* @param[in] e Pointer to an EntityBase (usually a derived instance).
 	* @param[in] index Desired slot index (0..MAX_ENTITIES-1).
-	* @return true if entity was added at the specified index, false if index is out of range or slot is occupied.
+	* @return true if entity was added at the specified index, false otherwise.
 	*/
 	bool AddEntityAt(EntityBase* e, int index);
 
 	/**
 	 * @brief Removes and deletes the entity at the given index.
 	 * @param[in] index Slot index to remove (0..MAX_ENTITIES-1).
-	 * @return true on successful removal and deletion, false on invalid index or empty slot.
 	 */
 	void RemoveEntity(int index);
 
@@ -428,44 +624,73 @@ namespace Entity
 
 	/**
 	 * @brief Loads resources needed by the entity system.
-	 * @details This may include loading textures, meshes, or other assets
-	 *          shared by multiple entities. Called once when the system is initialized.
 	 */
-	void Load();
+	void Load(const Collision::Map* map = {});
 
 	/**
 	 * @brief Initializes the entity system and creates initial entities.
-	 * @details Sets up any necessary data structures and creates initial entities
-	 *          (e.g., player). Called once after Load().
 	 */
 	void Init();
 
 	/**
-	 * @brief Updates all entities in the system.
-	 * @details This may include moving entities, handling input, or other
-	 *          per-frame logic. Called every frame.
+	 * @brief Updates all entities in the system. Called every frame.
 	 */
 	void Update();
 
 	/**
-	 * @brief Draws all entities in the system.
-	 * @details Renders entities to the screen. Called every frame after Update().
+	 * @brief Draws all entities in the system. Called every frame after Update().
 	 */
 	void Draw();
 
 	/**
-	 * @brief Frees resources used by the entity system.
-	 * @details This may include freeing textures, meshes, or other assets.
-	 *          Called once when the system is being shut down or when returning
-	 *          to a main menu.
+	 * @brief Frees per-frame resources used by the entity system.
 	 */
 	void Free();
 
 	/**
 	* @brief Unloads the entity system, clearing all entities and freeing resources.
-	* @details Calls ClearEntities() to delete all entity instances and sets pointers to nullptr.
 	*/
 	void Unload();
+
+	// =========================================================================
+	//                  Entity system pipeline stages
+	// =========================================================================
+
+	/**
+	 * @brief Calls each sub-system's movement logic (e.g. PS::Update).
+	 *        Each system computes nextCoordinates/velocity but does NOT commit position.
+	 * @param[in] dt Frame delta time in seconds.
+	 */
+	void UpdatePositions();
+
+	/**
+	 * @brief Iterates active entities and validates their intended nextCoordinates
+	 *        against the tile map and prop AABBs. Reverts blocked axes.
+	 */
+	void HandleCollisions();
+
+	/**
+	 * @brief Commits movement for all active entities: position = nextCoordinates,
+	 *        updates grid index, and resolves facing direction.
+	 */
+	void UpdateTransformations();
+
+	// =========================================================================
+	//                          Render queue
+	// =========================================================================
+
+	/**
+	 * @brief Builds a sorted draw list of all active entities (lowest Y first)
+	 *        and invokes each sub-system's draw for that entity.
+	 *
+	 * @details Sorting by grid row index (descending Y = lower row = drawn first)
+	 *          is cheaper than sorting by float world-Y and produces equivalent
+	 *          results on a uniform tile grid.
+	 *
+	 *          Call this from Entity::Draw(). Level code should call Entity::Draw()
+	 *          at the correct point in its own draw order.
+	 */
+	void RenderQueue();
 }
 
 #endif // !ENTITY_HPP

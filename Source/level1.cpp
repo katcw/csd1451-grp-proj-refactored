@@ -261,7 +261,7 @@ void Level1_Load()
     MerchantSystem::Load();
 
     // Entity load
-    Entity::Load();
+    Entity::Load(&collisionMap);
 
     // Customer pool — shared GPU resources for all concurrent customers
     CustomerSystem::CustomerPool_Load(customerPool);
@@ -529,8 +529,6 @@ void Level1_Update()
             }
 
             AEVec2 prevPos = PlayerSystem::p1->GetCoordinates();
-            PlayerSystem::Update(collisionMap, dt);
-
             Entity::Update();
 
             {
