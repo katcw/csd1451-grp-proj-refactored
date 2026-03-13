@@ -1,57 +1,83 @@
 #pragma once
 
-#include "AEEngine.h"
 #include "entity.hpp"
-#include "plant_system.hpp"
 
 enum class ShopItemType
 {
-    NONE = 0,
-    SEED,
-    BONUS_GOLD,
-    EXTRA_STORAGE
+    SPEED_BOOST,
+    WATER_UPGRADE,
+    COIN_MULTIPLIER,
+    START_GOLD,
+    MERCHANT_FAVOR,
+    DISCOUNT_COUPON,
+    MERCHANT_GAMBLE,
+    NONE
 };
 
 struct ShopItem
 {
     ShopItemType type = ShopItemType::NONE;
-    SeedType     seed = SeedType::NONE;
-    int          price = 0;
-    const char* name = "";
+    int price = 0;
+    char name[32]{};
+    char desc[96]{};
+    bool nextLevelOnly = false;
+    bool nextMerchantOnly = false;
+};
+
+struct RunBonuses
+{
+    // Permanent through the rest of the game/run
+    int speedLevel = 0;
+    int waterLevel = 0;
+
+    // Next level only
+    float nextLevelCoinMultiplier = 1.0f;
+    int nextLevelStartGoldBonus = 0;
+
+    // Merchant-related
+    bool freeRerollAvailable = false;
+    float nextMerchantDiscount = 0.0f; // 0.25f = 25% off next merchant shop
 };
 
 struct Merchant
 {
-    AEVec2 position{ 0.f, -400.f };
-    AEVec2 velocity{ 0.f, 0.f };
-
-    float speed = 250.f;
-
     bool active = false;
     bool arrived = false;
     bool shopOpen = false;
 
-    Entity::FaceDirection facing = Entity::FaceDirection::UP;
-    Entity::MoveState     moveState = Entity::MoveState::IDLE;
+	AEVec2 position{}; // unc change this ltr on to match ur entity system coords
+    AEVec2 velocity{}; // this too 
 
-    ShopItem items[9]{};
+    /*Entity::Position position{};
+    Entity::Velocity velocity{};*/
 
-    float slotX[9]{};
-    float slotY[9]{};
+    float speed = 250.0f;
+    Entity::FaceDirection facing = Entity::FaceDirection::DOWN;
+    Entity::MoveState moveState = Entity::MoveState::IDLE;
 
-    int   hoveredIndex = -1;
-    char  uiMessage[64] = "";
+    static constexpr int OFFER_COUNT = 3;
+
+    ShopItem offers[OFFER_COUNT]{};
+    float slotX[OFFER_COUNT]{};
+    float slotY[OFFER_COUNT]{};
+
+    int hoveredIndex = -1;
+
+    char uiMessage[128]{};
     float uiMessageTimer = 0.0f;
+
+    bool rerolledThisVisit = false;
+    bool usedFreeRerollThisVisit = false;
 };
 
 namespace MerchantSystem
 {
     void Load();
     void Init(Merchant& m);
-    void Start(Merchant& m);
+    void Start(Merchant& m, const RunBonuses& bonuses);
     void Update(Merchant& m, float dt);
     void Draw(Merchant& m, s8 fontId);
-    void HandleMousePurchase(Merchant& m, HeldState& held);
+    void HandleMousePurchase(Merchant& m, RunBonuses& bonuses);
     void Free();
     void Unload();
 }

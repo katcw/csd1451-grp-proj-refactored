@@ -41,6 +41,7 @@
 #include "debug.hpp"
 #include "entity.hpp"
 #include "merchant.hpp"
+#include "level2.hpp"
 
 namespace
 {
@@ -80,11 +81,10 @@ namespace
     // Text sequence data
     struct TextEntry { const char* text; float x, y, scale, r, g, b; };
 
-    // [TUNE] Level 1 intro text — edit strings here
     const TextEntry textSequence[] =
     {
         { "day one", 0.f, 0.f, 1.f, 1.f, 1.f, 1.f },
-        { "your shop opens today, make prasanna proud",  0.f, 0.f, 1.f, 1.f, 1.f, 1.f },
+        { "your shop opens today, make prasanna proud", 0.f, 0.f, 1.f, 1.f, 1.f, 1.f },
     };
     const int TEXT_COUNT = static_cast<int>(sizeof(textSequence) / sizeof(textSequence[0]));
 
@@ -97,35 +97,27 @@ namespace
     Collision::Map   collisionMap;
 
     //========================================================================
-    // Prop state — loaded from level1_map_data.txt
-    //   ID 2 = player spawn
-    //   ID 3 = pot
-    //   ID 4 = chest
-    //   ID 5 = rune table
-    //   ID 6 = poison table
+    // Prop state
     //========================================================================
-
-    // Chest seeds — left-to-right reading order of the 6 chests in the map
     static const SeedType s_chestSeeds[] = {
         SeedType::ROSE, SeedType::TULIP, SeedType::SUNFLOWER,
         SeedType::DAISY, SeedType::LILY, SeedType::ORCHID
     };
 
-    constexpr int MAX_MAP_CHESTS = 8;   // [TUNE] must be ≥ chest count in map
+    constexpr int MAX_MAP_CHESTS = 8;
 
     AEVec2                  potPositions[plantSystem::MAX_PLANTS];
     int                     potCount = 0;
     plantSystem::ChestData  chests[MAX_MAP_CHESTS];
     int                     chestCount = 0;
 
-    float chestTooltipT[MAX_MAP_CHESTS]{};           // 0-1 ease-in/out per chest
-    float heldTooltipT = 0.f;                  // 0-1 ease-in/out for held-item bar
-    float customerTooltipT[CustomerSystem::POOL_MAX]{}; // 0-1 ease-in/out per customer slot
+    float chestTooltipT[MAX_MAP_CHESTS]{};
+    float heldTooltipT = 0.f;
+    float customerTooltipT[CustomerSystem::POOL_MAX]{};
 
     plantSystem::State      plantState;
     ParticleSystem::State   particleState;
 
-    // Table positions (loaded from map IDs 5 and 6)
     AEVec2                  runeTablePositions[TableSystem::MAX_TABLES];
     int                     runeTableCount = 0;
     AEVec2                  poisonTablePositions[TableSystem::MAX_TABLES];
@@ -137,10 +129,8 @@ namespace
     //========================================================================
     CustomerSystem::PoolState customerPool;
 
-    // Spawn point
     static const AEVec2 CUSTOMER_SPAWN_POS = { 0.0f, -225.f };
 
-    // Target positions (y ≤ 0; well below map centre to stay clear of props)
     static const AEVec2 CUSTOMER_TARGETS[] = {
         { -384.f,  -96.f }, { -256.f,  -96.f }, { -128.f,  -96.f },
         {   64.f,  -96.f }, {  320.f,  -96.f },
@@ -177,10 +167,10 @@ namespace
     const AEVec2 CLOCK_TEXT_OFF = { 75.f, 0.f };
 
     //========================================================================
-    // HUD icon textures — flower and seed pack, indexed by enum cast to int
+    // HUD icon textures
     //========================================================================
-    AEGfxTexture* flowerIconTex[7] = {};  // [FlowerType 0-6]: 0=unused, 1-6=icons
-    AEGfxTexture* seedPackTex[7] = {};  // [SeedType   0-6]: 0=unused, 1-6=icons
+    AEGfxTexture* flowerIconTex[7] = {};
+    AEGfxTexture* seedPackTex[7] = {};
 
     //========================================================================
     // Win / lose state
@@ -189,7 +179,7 @@ namespace
     Level1End endState = Level1End::PLAYING;
     float     fadeAlpha = 0.f;
 
-    constexpr int GOLD_WIN_TARGET = 40;  // [TUNE] gold required to win
+    constexpr int GOLD_WIN_TARGET = 40;
 
     //========================================================================
     // Merchant post-win state
@@ -202,12 +192,9 @@ namespace
     //========================================================================
     constexpr float PLAYER_HW = PlayerSystem::HALF_W;
     constexpr float PLAYER_HH = PlayerSystem::HALF_H;
-    constexpr float PROP_COLL_HW = 32.f;   // Half of sprite's 64 px
+    constexpr float PROP_COLL_HW = 32.f;
     constexpr float PROP_COLL_HH = 32.f;
 
-    //========================================================================
-    // Local helpers — display names for seed and flower types
-    //========================================================================
     const char* SeedName(SeedType st)
     {
         switch (st)
@@ -238,10 +225,6 @@ namespace
 
 } // anonymous namespace
 
-//============================================================================
-// LIFECYCLE
-//============================================================================
-
 void Level1_Load()
 {
     uiCardTexture = BasicUtilities::loadTexture("Assets/ui_card.png");
@@ -260,17 +243,13 @@ void Level1_Load()
     TableSystem::TableSystem_Load(tableState);
     MerchantSystem::Load();
 
-    // Entity load
     Entity::Load(&collisionMap);
-
-    // Customer pool — shared GPU resources for all concurrent customers
     CustomerSystem::CustomerPool_Load(customerPool);
 
     infoPanelTex = BasicUtilities::loadTexture("Assets/info_panel.png");
     goldIconTex = BasicUtilities::loadTexture("Assets/gold_icon.png");
     clockIconTex = BasicUtilities::loadTexture("Assets/clock_icon.png");
 
-    // HUD icon textures — flower icon and seed pack icon for each flower type
     for (int i = 1; i <= 6; ++i)
     {
         char path[64];
@@ -293,27 +272,21 @@ void Level1_Initialise()
     red = green = blue = 0.f;
     backgroundTimer = 0.f;
 
-    // Camera pan
     cameraReady = false;
     camPanTimer = 0.f;
     currentCamY = CAM_START_Y;
     AEGfxSetCamPosition(0.f, CAM_START_Y);
 
-    // Player spawn from map (ID 2)
     AEVec2 spawnBuf[1];
     if (Collision::Map_GetCentres(collisionMap, 2, spawnBuf, 1) > 0)
         PlayerSystem::Init(spawnBuf[0]);
     else
         PlayerSystem::Init({ 0.f, 0.f });
 
-	// Entity system init
-	Entity::Init();
+    Entity::Init();
 
-    // Pots (ID 3)
-    potCount = Collision::Map_GetCentres(collisionMap, 3,
-        potPositions, plantSystem::MAX_PLANTS);
+    potCount = Collision::Map_GetCentres(collisionMap, 3, potPositions, plantSystem::MAX_PLANTS);
 
-    // Chests (ID 4) + seed assignment (left-to-right reading order)
     AEVec2 chestPosBuf[MAX_MAP_CHESTS];
     chestCount = Collision::Map_GetCentres(collisionMap, 4, chestPosBuf, MAX_MAP_CHESTS);
     for (int i = 0; i < chestCount; ++i)
@@ -329,16 +302,12 @@ void Level1_Initialise()
     for (int i = 0; i < CustomerSystem::POOL_MAX; ++i)
         customerTooltipT[i] = 0.f;
 
-    // Tables (IDs 5 and 6)
-    runeTableCount = Collision::Map_GetCentres(collisionMap, 5,
-        runeTablePositions, TableSystem::MAX_TABLES);
-    poisonTableCount = Collision::Map_GetCentres(collisionMap, 6,
-        poisonTablePositions, TableSystem::MAX_TABLES);
+    runeTableCount = Collision::Map_GetCentres(collisionMap, 5, runeTablePositions, TableSystem::MAX_TABLES);
+    poisonTableCount = Collision::Map_GetCentres(collisionMap, 6, poisonTablePositions, TableSystem::MAX_TABLES);
 
     TimeOfDay::Init();
-    Gold::Init(0);
+    Gold::Init(0); // Level 1 is baseline, no boosts applied yet
 
-    // GS_RESTART skips fpLoad — re-create GPU resources freed by Level1_Free if needed
     if (!plantState.mesh)         plantSystem::PlantSystem_Load(plantState);
     if (!tableState.mesh)         TableSystem::TableSystem_Load(tableState);
     if (!customerPool.spriteMesh) CustomerSystem::CustomerPool_Load(customerPool);
@@ -349,25 +318,20 @@ void Level1_Initialise()
         runeTablePositions, runeTableCount,
         poisonTablePositions, poisonTableCount);
 
-    // Customer pool — first spawn timer is 0 so a customer arrives quickly
     CustomerSystem::CustomerPool_Init(customerPool, CUSTOMER_SPAWN_POS,
         CUSTOMER_TARGETS, CUSTOMER_TARGET_COUNT);
 
-    // Win/lose state reset
     endState = Level1End::PLAYING;
     fadeAlpha = 0.f;
 
-    // Merchant reset
     MerchantSystem::Init(merchant);
     merchantStarted = false;
-
 }
 
 void Level1_Update()
 {
     float dt = static_cast<float>(AEFrameRateControllerGetFrameTime());
 
-    // [1] STAGE_TEXT_SEQUENCE
     if (currentStage == STAGE_TEXT_SEQUENCE)
     {
         if (AEInputCheckTriggered(AEVK_SPACE) &&
@@ -414,7 +378,9 @@ void Level1_Update()
             blue = t * targetBlue;
             if (backgroundTimer >= BG_TRANSITION_DURATION)
             {
-                red = targetRed; green = targetGreen; blue = targetBlue;
+                red = targetRed;
+                green = targetGreen;
+                blue = targetBlue;
                 currentPhase = COMPLETE;
             }
             break;
@@ -425,19 +391,16 @@ void Level1_Update()
             break;
         }
     }
-
-    // [2] STAGE_GAMEPLAY
     else if (currentStage == STAGE_GAMEPLAY)
     {
         TimeOfDay::Update(dt);
 
-        // Camera panning
         if (!cameraReady)
         {
             camPanTimer += dt;
             float t = camPanTimer / CAM_PAN_DURATION;
             if (t > 1.f) t = 1.f;
-            float tEased = 1.f - (1.f - t) * (1.f - t); // quad ease-out
+            float tEased = 1.f - (1.f - t) * (1.f - t);
 
             currentCamY = CAM_START_Y + (CAM_END_Y - CAM_START_Y) * tEased;
             AEGfxSetCamPosition(0.f, currentCamY);
@@ -454,48 +417,43 @@ void Level1_Update()
             if (AEInputCheckTriggered(AEVK_LBRACKET))
                 Debug::enabled = !Debug::enabled;
 
-            //------------------------------------------------------------------
-            // Check for game end: time ran out
-            //------------------------------------------------------------------
-            //------------------------------------------------------------------
-// Check for game end: time ran out
-//------------------------------------------------------------------
             if (endState == Level1End::PLAYING && TimeOfDay::HasEnded())
             {
                 endState = (Gold::GetTotal() >= GOLD_WIN_TARGET)
                     ? Level1End::WIN : Level1End::LOSE;
             }
 
-            // Win/lose overlay / merchant sequence: freeze normal gameplay
             if (endState != Level1End::PLAYING)
             {
                 fadeAlpha = std::fminf(fadeAlpha + dt * 0.5f, 1.f);
 
                 if (endState == Level1End::WIN)
                 {
-                    // Start merchant only when SPACE is pressed
+                    if (!merchantStarted && AEInputCheckTriggered(AEVK_R))
+                    {
+                        nextState = GS_RESTART;
+                        return;
+                    }
+
                     if (!merchantStarted && AEInputCheckTriggered(AEVK_SPACE))
                     {
-                        MerchantSystem::Start(merchant);
+                        MerchantSystem::Start(merchant, gRunBonuses);
+                        gRunBonuses.nextMerchantDiscount = 0.0f;
                         merchantStarted = true;
                     }
 
-                    // Once started, merchant walks in and shop can be used
                     if (merchantStarted)
                     {
                         MerchantSystem::Update(merchant, dt);
-                        MerchantSystem::HandleMousePurchase(merchant, PlayerSystem::p1->held);
+                        MerchantSystem::HandleMousePurchase(merchant, gRunBonuses);
 
                         if (!merchant.active)
-                        {
-                            nextState = GS_RESTART; // change later if needed
-                        }
+                            nextState = GS_LEVEL2;
                     }
 
                     return;
                 }
 
-                // LOSE flow
                 if (fadeAlpha >= 1.f)
                 {
                     if (AEInputCheckTriggered(AEVK_R))
@@ -504,28 +462,31 @@ void Level1_Update()
 
                 return;
             }
-            //------------------------------------------------------------------
-            // Player movement — tile map blocks walls (ID=1).
-            // Pots, chests, tables, and WAITING customers use per-axis AABB.
-            //------------------------------------------------------------------
-            // Tick all ease-in/out timers
+
             constexpr float ANIM_SPEED = 6.0f;
 
             for (int i = 0; i < chestCount; ++i)
             {
-                bool inRange = std::fabsf(chests[i].pos.x - PlayerSystem::p1->GetCoordinates().x) < PLAYER_HW + PROP_COLL_HW &&
+                bool inRange =
+                    std::fabsf(chests[i].pos.x - PlayerSystem::p1->GetCoordinates().x) < PLAYER_HW + PROP_COLL_HW &&
                     std::fabsf(chests[i].pos.y - PlayerSystem::p1->GetCoordinates().y) < PLAYER_HH + PROP_COLL_HH;
                 BasicUtilities::tickEase(chestTooltipT[i], inRange, dt, ANIM_SPEED);
             }
 
-            BasicUtilities::tickEase(heldTooltipT,
-                PlayerSystem::p1->held.type != HeldItem::NONE, dt, ANIM_SPEED);
+            BasicUtilities::tickEase(
+                heldTooltipT,
+                PlayerSystem::p1->held.type != HeldItem::NONE,
+                dt,
+                ANIM_SPEED);
 
             for (int ci = 0; ci < CustomerSystem::POOL_MAX; ++ci)
             {
                 const auto& sl = customerPool.slots[ci];
-                BasicUtilities::tickEase(customerTooltipT[ci],
-                    sl.active && sl.customer.state == CustomerState::WAITING, dt, ANIM_SPEED);
+                BasicUtilities::tickEase(
+                    customerTooltipT[ci],
+                    sl.active && sl.customer.state == CustomerState::WAITING,
+                    dt,
+                    ANIM_SPEED);
             }
 
             AEVec2 prevPos = PlayerSystem::p1->GetCoordinates();
@@ -538,39 +499,35 @@ void Level1_Update()
 
                 auto isPropBlocked = [&](float cx, float cy, bool topOnly) -> bool
                     {
-                        // Pots
                         for (int i = 0; i < potCount; ++i)
                             if (fabsf(cx - potPositions[i].x) < PW + PROP_HW &&
                                 fabsf(cy - potPositions[i].y) < PH + PROP_HH &&
                                 (!topOnly || cy >= potPositions[i].y - PROP_BOTTOM_ALLOW))
                                 return true;
 
-                        // Chests
                         for (int i = 0; i < chestCount; ++i)
                             if (fabsf(cx - chests[i].pos.x) < PW + PROP_HW &&
                                 fabsf(cy - chests[i].pos.y) < PH + PROP_HH &&
                                 (!topOnly || cy >= chests[i].pos.y - PROP_BOTTOM_ALLOW))
                                 return true;
 
-                        // Tables (wider than standard props)
                         for (int i = 0; i < tableState.count; ++i)
                             if (fabsf(cx - tableState.tables[i].pos.x) < PW + TableSystem::TABLE_COLL_HW &&
                                 fabsf(cy - tableState.tables[i].pos.y) < PH + TableSystem::TABLE_COLL_HH &&
                                 (!topOnly || cy >= tableState.tables[i].pos.y - PROP_BOTTOM_ALLOW))
                                 return true;
 
-                    // WAITING customers block the player (ARRIVING/LEAVING are moving; don't block)
-                    for (int ci = 0; ci < CustomerSystem::POOL_MAX; ++ci)
-                    {
-                        const auto& sl = customerPool.slots[ci];
-                        if (!sl.active || sl.customer.state != CustomerState::WAITING) continue;
-                        if (fabsf(cx - sl.customer.GetCoordinates().x) < PW + PROP_HW &&
-                            fabsf(cy - sl.customer.GetCoordinates().y) < PH + PROP_HH &&
-                            (!topOnly || cy >= sl.customer.GetCoordinates().y - PROP_BOTTOM_ALLOW))
-                            return true;
-                    }
-                    return false;
-                };
+                        for (int ci = 0; ci < CustomerSystem::POOL_MAX; ++ci)
+                        {
+                            const auto& sl = customerPool.slots[ci];
+                            if (!sl.active || sl.customer.state != CustomerState::WAITING) continue;
+                            if (fabsf(cx - sl.customer.GetCoordinates().x) < PW + PROP_HW &&
+                                fabsf(cy - sl.customer.GetCoordinates().y) < PH + PROP_HH &&
+                                (!topOnly || cy >= sl.customer.GetCoordinates().y - PROP_BOTTOM_ALLOW))
+                                return true;
+                        }
+                        return false;
+                    };
 
                 if (isPropBlocked(PlayerSystem::p1->GetCoordinates().x, prevPos.y, true))
                     PlayerSystem::p1->RefX() = prevPos.x;
@@ -578,10 +535,6 @@ void Level1_Update()
                     PlayerSystem::p1->RefY() = prevPos.y;
             }
 
-            //------------------------------------------------------------------
-            // Customer serve — priority E-key handler (only when holding a flower).
-            // Runs before table and plant updates so the correct interaction fires.
-            //------------------------------------------------------------------
             bool ePressHandled = false;
             if (AEInputCheckTriggered(AEVK_E) &&
                 PlayerSystem::p1->held.type == HeldItem::FLOWER)
@@ -594,28 +547,31 @@ void Level1_Update()
 
                 if (gold > 0)
                 {
-                    Gold::Earn(gold);
+                    Gold::Earn(gold); // Level 1 does not use coin multiplier yet
                     PlayerSystem::p1->held = HeldState{};
                     ePressHandled = true;
                 }
             }
 
-            // Table interaction (E key: place held flower → start infusion,
-            //                    or pick up infused flower → apply modifier).
-            // Skipped if the E press already served a customer.
             if (!ePressHandled)
-                TableSystem::TableSystem_Update(tableState, dt,
-                    PlayerSystem::p1->GetCoordinates(), PlayerSystem::p1->held);
+                TableSystem::TableSystem_Update(
+                    tableState,
+                    dt,
+                    PlayerSystem::p1->GetCoordinates(),
+                    PlayerSystem::p1->held);
 
-            // Plant system (E = pick seed / plant / harvest; Q = water)
-            plantSystem::PlantSystem_Update(plantState, dt,
-                PlayerSystem::p1->GetCoordinates(), PlayerSystem::p1->held,
-                potPositions, potCount, chests, chestCount);
+            plantSystem::PlantSystem_Update(
+                plantState,
+                dt,
+                PlayerSystem::p1->GetCoordinates(),
+                PlayerSystem::p1->held,
+                potPositions,
+                potCount,
+                chests,
+                chestCount);
 
-            // Customer pool — spawn new customers and advance all active ones
             CustomerSystem::CustomerPool_Update(customerPool, dt);
 
-            // Water particles — radial spray from pot centre while Q is held
             particleState.emitTimer -= dt;
             if (AEInputCheckCurr(AEVK_Q) && particleState.emitTimer <= 0.f)
             {
@@ -623,9 +579,10 @@ void Level1_Update()
                     plantState, PlayerSystem::p1->GetCoordinates());
                 if (waterIdx >= 0 && plantState.can.water > 0.f)
                 {
-                    ParticleSystem::EmitWater(particleState,
+                    ParticleSystem::EmitWater(
+                        particleState,
                         plantState.plants[waterIdx].pos);
-                    particleState.emitTimer = 0.05f; // 20 bursts/sec
+                    particleState.emitTimer = 0.05f;
                 }
             }
             ParticleSystem::Update(particleState, dt);
@@ -635,7 +592,6 @@ void Level1_Update()
 
 void Level1_Draw()
 {
-    // STAGE_TEXT_SEQUENCE
     if (currentStage == STAGE_TEXT_SEQUENCE)
     {
         AEGfxSetBackgroundColor(red, green, blue);
@@ -645,20 +601,16 @@ void Level1_Draw()
             if (currentTextIndex < TEXT_COUNT)
             {
                 const TextEntry& e = textSequence[currentTextIndex];
-                BasicUtilities::drawText(fontId, e.text, e.x, e.y, e.scale,
-                    e.r, e.g, e.b, alpha);
+                BasicUtilities::drawText(fontId, e.text, e.x, e.y, e.scale, e.r, e.g, e.b, alpha);
             }
         }
     }
-
-    // STAGE_GAMEPLAY
     else if (currentStage == STAGE_GAMEPLAY)
     {
         float r, g, b;
         TimeOfDay::GetBackgroundColor(r, g, b);
         AEGfxSetBackgroundColor(r, g, b);
 
-        // ── Floor tiles ──────────────────────────────────────────────────────
         for (int row = 0; row < collisionMap.height; ++row)
         {
             for (int col = 0; col < collisionMap.width; ++col)
@@ -668,26 +620,15 @@ void Level1_Draw()
                 float cx = collisionMap.origin.x + col * collisionMap.tileSize + collisionMap.tileSize * 0.5f;
                 float cy = collisionMap.origin.y + row * collisionMap.tileSize + collisionMap.tileSize * 0.5f;
                 AEGfxTexture* tex = ((col + row) % 2 == 0) ? floorOneTex : floorTwoTex;
-                BasicUtilities::drawUICard(tileMesh, tex, cx, cy,
-                    collisionMap.tileSize, collisionMap.tileSize);
+                BasicUtilities::drawUICard(tileMesh, tex, cx, cy, collisionMap.tileSize, collisionMap.tileSize);
             }
         }
 
-        // ── Props: pots and chests ───────────────────────────────────────────
         plantSystem::PlantSystem_Draw(plantState, chests, chestCount);
-
-        // ── Tables ──────────────────────────────────────────────────────────
         TableSystem::TableSystem_Draw(tableState, flowerIconTex);
-
-        // ── Customers — sprites before player so player appears in front ─────
         CustomerSystem::CustomerPool_Draw(customerPool, fontId);
-
-        // Draw entities
         Entity::Draw();
 
-        // ── Player + particles — draw order based on perspective ─────────────
-        // Facing UP  → player's back is to the camera; particles appear below.
-        // All other  → player faces the camera; particles appear above.
         if (PlayerSystem::p1->GetLastDirection() == Entity::FaceDirection::UP)
         {
             ParticleSystem::Draw(particleState);
@@ -699,41 +640,38 @@ void Level1_Draw()
             ParticleSystem::Draw(particleState);
         }
 
-        // ── Customer patience bars and order bubbles (above player) ──────────
         {
             float smoothedCustomerT[CustomerSystem::POOL_MAX]{};
             for (int ci = 0; ci < CustomerSystem::POOL_MAX; ++ci)
                 smoothedCustomerT[ci] = BasicUtilities::smoothstep(customerTooltipT[ci]);
+
             CustomerSystem::CustomerPool_DrawUI(customerPool, fontId, flowerIconTex, smoothedCustomerT);
         }
 
-        // ── Info panel ───────────────────────────────────────────────────────
-        BasicUtilities::drawUICard(squareMesh, infoPanelTex,
-            PANEL_POS.x, PANEL_POS.y, PANEL_W, PANEL_H);
-
+        BasicUtilities::drawUICard(squareMesh, infoPanelTex, PANEL_POS.x, PANEL_POS.y, PANEL_W, PANEL_H);
         BasicUtilities::drawUICard(squareMesh, goldIconTex,
-            PANEL_POS.x + GOLD_ICON_OFF.x, PANEL_POS.y + GOLD_ICON_OFF.y,
-            ICON_SIZE, ICON_SIZE);
-
+            PANEL_POS.x + GOLD_ICON_OFF.x, PANEL_POS.y + GOLD_ICON_OFF.y, ICON_SIZE, ICON_SIZE);
         BasicUtilities::drawUICard(squareMesh, clockIconTex,
-            PANEL_POS.x + CLOCK_ICON_OFF.x, PANEL_POS.y + CLOCK_ICON_OFF.y,
-            ICON_SIZE, ICON_SIZE);
+            PANEL_POS.x + CLOCK_ICON_OFF.x, PANEL_POS.y + CLOCK_ICON_OFF.y, ICON_SIZE, ICON_SIZE);
 
         char goldBuf[16], timeBuf[16];
         sprintf_s(goldBuf, sizeof(goldBuf), "%d", Gold::GetTotal());
         TimeOfDay::GetClockString(timeBuf, sizeof(timeBuf));
 
-        BasicUtilities::drawText(fontId, goldBuf,
+        BasicUtilities::drawText(
+            fontId,
+            goldBuf,
             PANEL_POS.x + GOLD_TEXT_OFF.x,
             (PANEL_POS.y + GOLD_TEXT_OFF.y) - currentCamY,
             0.8f, 1.f, 0.85f, 0.f);
 
-        BasicUtilities::drawText(fontId, timeBuf,
+        BasicUtilities::drawText(
+            fontId,
+            timeBuf,
             PANEL_POS.x + CLOCK_TEXT_OFF.x,
             (PANEL_POS.y + CLOCK_TEXT_OFF.y) - currentCamY,
             0.8f, 1.f, 1.f, 1.f);
 
-        // ── Chest tooltips — dark bar with seed pack icon + name above chest ──
         if (cameraReady && PlayerSystem::p1)
         {
             for (int i = 0; i < chestCount; ++i)
@@ -741,13 +679,15 @@ void Level1_Draw()
                 float dx = chests[i].pos.x - PlayerSystem::p1->GetCoordinates().x;
                 float dy = chests[i].pos.y - PlayerSystem::p1->GetCoordinates().y;
                 if (std::fabsf(dx) >= PLAYER_HW + PROP_COLL_HW ||
-                    std::fabsf(dy) >= PLAYER_HH + PROP_COLL_HH) continue;
-                if (chestTooltipT[i] <= 0.f) continue;
+                    std::fabsf(dy) >= PLAYER_HH + PROP_COLL_HH)
+                    continue;
+                if (chestTooltipT[i] <= 0.f)
+                    continue;
 
                 int idx = static_cast<int>(chests[i].seed);
-                if (idx < 1 || idx > 6) continue;
+                if (idx < 1 || idx > 6)
+                    continue;
 
-                // Smoothstep the raw timer before passing to drawTooltip
                 float t = BasicUtilities::smoothstep(chestTooltipT[i]);
 
                 BasicUtilities::drawTooltip(
@@ -762,11 +702,10 @@ void Level1_Draw()
             }
         }
 
-        // ── Held-item tooltip — dark bar at screen bottom (camera-independent) ─
         if (cameraReady && PlayerSystem::p1 && heldTooltipT > 0.f)
         {
-            constexpr float TX = 0.f;    // screen-space X (centred)
-            constexpr float TY = -380.f; // screen-space Y (near bottom)
+            constexpr float TX = 0.f;
+            constexpr float TY = -380.f;
             const HeldState& held = PlayerSystem::p1->held;
 
             float hT = BasicUtilities::smoothstep(heldTooltipT);
@@ -803,23 +742,20 @@ void Level1_Draw()
             }
         }
 
-        // ── Win/lose overlay — fade to black then show result + restart hint ─
         if (endState != Level1End::PLAYING)
-{
-    AEGfxSetRenderMode(AE_GFX_RM_COLOR);
-    AEGfxSetBlendMode(AE_GFX_BM_BLEND);
+        {
+            AEGfxSetRenderMode(AE_GFX_RM_COLOR);
+            AEGfxSetBlendMode(AE_GFX_BM_BLEND);
 
-    float overlayAlpha = fadeAlpha;
+            float overlayAlpha = fadeAlpha;
 
-    // Keep the level visible when the merchant arrives after a win
-    if (endState == Level1End::WIN)
-        overlayAlpha = 0.35f;
+            if (endState == Level1End::WIN)
+                overlayAlpha = 0.65f;
 
-    AEGfxSetTransparency(overlayAlpha);
-    AEGfxSetColorToMultiply(0.f, 0.f, 0.f, 1.f);
-    AEGfxSetColorToAdd(0.f, 0.f, 0.f, 0.f);
+            AEGfxSetTransparency(overlayAlpha);
+            AEGfxSetColorToMultiply(0.10f, 0.06f, 0.03f, 1.f);
+            AEGfxSetColorToAdd(0.f, 0.f, 0.f, 0.f);
 
-            // Full-screen black quad centred on the camera position
             AEMtx33 sclMtx{}, trsMtx{}, mtx{};
             AEMtx33Scale(&sclMtx, 1600.f, 900.f);
             AEMtx33Trans(&trsMtx, 0.f, currentCamY);
@@ -827,7 +763,6 @@ void Level1_Draw()
             AEGfxSetTransform(mtx.m);
             AEGfxMeshDraw(squareMesh, AE_GFX_MDM_TRIANGLES);
 
-            // Show result text only once fully faded
             if (fadeAlpha >= 1.f)
             {
                 const bool  win = (endState == Level1End::WIN);
@@ -836,40 +771,45 @@ void Level1_Draw()
                 const float mg = win ? 0.85f : 0.2f;
                 const float mb = win ? 0.0f : 0.2f;
 
-                BasicUtilities::drawText(fontId, msg,
-                    0.f, 50.f, 2.0f, mr, mg, mb, 1.f);
+                BasicUtilities::drawText(fontId, msg, 0.f, 50.f, 2.0f, mr, mg, mb, 1.f);
 
                 if (win)
                 {
                     if (!merchantStarted)
                     {
-                        BasicUtilities::drawText(fontId, "press SPACE to call the merchant",
+                        BasicUtilities::drawText(
+                            fontId,
+                            "press SPACE to call the merchant",
                             0.f, -20.f, 0.8f, 1.f, 1.f, 1.f, 1.f);
 
-                        BasicUtilities::drawText(fontId, "press R to replay level",
+                        BasicUtilities::drawText(
+                            fontId,
+                            "press R to replay level",
                             0.f, -60.f, 0.8f, 1.f, 1.f, 1.f, 1.f);
                     }
                     else
                     {
-                        BasicUtilities::drawText(fontId, "click items to buy, press N to skip",
+                        BasicUtilities::drawText(
+                            fontId,
+                            "click items to buy, press N to skip",
                             0.f, -40.f, 0.7f, 1.f, 1.f, 1.f, 1.f);
                     }
                 }
                 else
                 {
-                    BasicUtilities::drawText(fontId, "press R to restart",
+                    BasicUtilities::drawText(
+                        fontId,
+                        "press R to restart",
                         0.f, -40.f, 0.8f, 1.f, 1.f, 1.f, 1.f);
                 }
             }
+
             if (endState == Level1End::WIN && merchantStarted)
             {
                 MerchantSystem::Draw(merchant, fontId);
             }
         }
 
-        //======================================================================
-        // DEBUG MODE
-        //======================================================================
         if (Debug::enabled)
         {
             AEMtx33 sclMtx{}, trsMtx{}, mtx{};
@@ -877,11 +817,10 @@ void Level1_Draw()
             AEGfxSetBlendMode(AE_GFX_BM_BLEND);
             AEGfxSetColorToAdd(0.f, 0.f, 0.f, 0.f);
 
-            auto drawAABB = [&](float cx, float cy, float hw, float hh,
-                float r, float g, float b)
+            auto drawAABB = [&](float cx, float cy, float hw, float hh, float rC, float gC, float bC)
                 {
                     AEGfxSetTransparency(Debug::HITBOX_ALPHA);
-                    AEGfxSetColorToMultiply(r, g, b, 1.f);
+                    AEGfxSetColorToMultiply(rC, gC, bC, 1.f);
                     AEMtx33Scale(&sclMtx, hw * 2.f, hh * 2.f);
                     AEMtx33Trans(&trsMtx, cx, cy);
                     AEMtx33Concat(&mtx, &trsMtx, &sclMtx);
@@ -889,20 +828,19 @@ void Level1_Draw()
                     AEGfxMeshDraw(squareMesh, AE_GFX_MDM_TRIANGLES);
                 };
 
-            // Player AABB
             if (PlayerSystem::p1)
                 drawAABB(PlayerSystem::p1->GetCoordinates().x, PlayerSystem::p1->GetCoordinates().y,
                     PLAYER_HW, PLAYER_HH,
                     Debug::PLAYER_R, Debug::PLAYER_G, Debug::PLAYER_B);
-            // Pot AABBs
+
             for (int i = 0; i < potCount; ++i)
                 drawAABB(potPositions[i].x, potPositions[i].y, PROP_COLL_HW, PROP_COLL_HH,
                     Debug::POT_R, Debug::POT_G, Debug::POT_B);
-            // Chest AABBs
+
             for (int i = 0; i < chestCount; ++i)
                 drawAABB(chests[i].pos.x, chests[i].pos.y, PROP_COLL_HW, PROP_COLL_HH,
                     Debug::CHEST_R, Debug::CHEST_G, Debug::CHEST_B);
-            // Table AABBs (rune = purple, poison = lime)
+
             for (int i = 0; i < tableState.count; ++i)
             {
                 bool isRune = (tableState.tables[i].type == TableSystem::TableType::RUNE);
@@ -913,7 +851,6 @@ void Level1_Draw()
                     isRune ? Debug::RUNE_TABLE_B : Debug::POISON_TABLE_B);
             }
 
-            // Debug status text
             if (PlayerSystem::p1)
             {
                 const auto& dbgP = *PlayerSystem::p1;
@@ -956,11 +893,12 @@ void Level1_Draw()
         }
     }
 }
+
 void Level1_Free()
 {
     AEGfxMeshFree(squareMesh); squareMesh = nullptr;
-    AEGfxMeshFree(tileMesh);   tileMesh   = nullptr;
-	Entity::Free();
+    AEGfxMeshFree(tileMesh);   tileMesh = nullptr;
+    Entity::Free();
     plantSystem::PlantSystem_Free(plantState);
     ParticleSystem::Free(particleState);
     TableSystem::TableSystem_Free(tableState);
@@ -971,8 +909,9 @@ void Level1_Free()
 
 void Level1_Unload()
 {
-    if (uiCardTexture) {
-          AEGfxTextureUnload(uiCardTexture);
+    if (uiCardTexture)
+    {
+        AEGfxTextureUnload(uiCardTexture);
         uiCardTexture = nullptr;
     }
     AEGfxDestroyFont(fontId);
@@ -985,7 +924,7 @@ void Level1_Unload()
     plantSystem::PlantSystem_Unload(plantState);
     TableSystem::TableSystem_Unload(tableState);
     CustomerSystem::CustomerPool_Unload(customerPool);
-	Entity::Unload();
+    Entity::Unload();
     MerchantSystem::Unload();
 
     AEGfxTextureUnload(infoPanelTex);
@@ -993,7 +932,6 @@ void Level1_Unload()
     AEGfxTextureUnload(clockIconTex);
     infoPanelTex = goldIconTex = clockIconTex = nullptr;
 
-    // HUD icon textures
     for (int i = 1; i <= 6; ++i)
     {
         if (flowerIconTex[i]) { AEGfxTextureUnload(flowerIconTex[i]); flowerIconTex[i] = nullptr; }
