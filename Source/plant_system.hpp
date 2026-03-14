@@ -20,7 +20,8 @@ namespace plantSystem
 {
     // Constants
     constexpr int   MAX_PLANTS       = 6;
-    constexpr float INTERACT_RADIUS  = 100.f;  // [LEGACY] kept for PlantSystem_NearestPlant (watering)
+    constexpr float INTERACT_RADIUS  = 75.f;  // [LEGACY] kept for PlantSystem_NearestPlant (watering)
+    constexpr float CHEST_INTERACT_RADIUS = 95.f;
     constexpr float BASE_GROWTH_RATE = 0.04f;  // Progress per second
     constexpr float WATER_MULTIPLIER = 6.0f;   // growth multiplier while watered
     constexpr float WATER_MAX        = 10.f;   // seconds of water in the can
@@ -28,8 +29,8 @@ namespace plantSystem
 
     // AABB interaction extents — used for E-key prop interaction and tooltip display.
     // Player extents must match PlayerSystem::HALF_W and PlayerSystem::HALF_H.
-    constexpr float PLAYER_INTERACT_HW = 25.f;  // matches PlayerSystem::HALF_W
-    constexpr float PLAYER_INTERACT_HH = 50.f;  // matches PlayerSystem::HALF_H
+    constexpr float PLAYER_INTERACT_HW = 32.f;  // matches PlayerSystem::HALF_W
+    constexpr float PLAYER_INTERACT_HH = 32.f;  // matches PlayerSystem::HALF_H
     constexpr float PROP_INTERACT_HW   = 32.f;  // half-width of standard prop (chest, pot)
     constexpr float PROP_INTERACT_HH   = 32.f;  // half-height of standard prop
 
@@ -71,7 +72,6 @@ namespace plantSystem
 
         // GPU resources owned by State
         AEGfxTexture*    potTex        = nullptr;  // empty pot
-        AEGfxTexture*    potPlantedTex = nullptr;  // pot with seed planted
         AEGfxTexture*    chestTex      = nullptr;
         AEGfxTexture*    stageTex[4]   = {};  // [PlantStage]: SEED, SPROUT(=GROWING shared), GROWING, unused
         AEGfxTexture*    grownTex[7]   = {};  // [SeedType 0-6]: 0=unused, 1-6=per-flower fully-grown
@@ -86,7 +86,8 @@ namespace plantSystem
     void PlantSystem_Update(State& s, float dt,
                             AEVec2 playerPos, HeldState& held,
                             const AEVec2* potPositions, int potCount,
-                            const ChestData* chests, int chestCount);
+                            const ChestData* chests, int chestCount,
+                            AEVec2 dustbinPos = {0.f,0.f});
     void PlantSystem_Draw  (State const& s,
                             const ChestData* chests, int chestCount);
     void PlantSystem_Free  (State& s);

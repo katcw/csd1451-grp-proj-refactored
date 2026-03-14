@@ -56,8 +56,10 @@ namespace PlayerSystem
 
 	extern Player* p1;
 
-	constexpr float HALF_W = 25.0f;
-	constexpr float HALF_H = 50.0f;
+	// [!] MAKE SURE to change these if player scale changes, if not collision
+	//	   will be slightly off
+	constexpr float HALF_W = 25.0f; // Half width of player scale
+	constexpr float HALF_H = 30.0f; // Half height of player scale
 
 	/// How long WASD must be held before the player commits to moving one tile (seconds).
 	constexpr float INPUT_HOLD_THRESHOLD = 0.12f;

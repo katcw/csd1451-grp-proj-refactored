@@ -83,7 +83,6 @@ namespace plantSystem
     {
         s.mesh          = BasicUtilities::createSquareMesh();
         s.potTex        = BasicUtilities::loadTexture("Assets/pot_empty.png");
-        s.potPlantedTex = BasicUtilities::loadTexture("Assets/pot_planted.png");
         s.chestTex      = BasicUtilities::loadTexture("Assets/chest.png");
 
         // Plant stage sprites (drawn on top of pot_planted while the plant is active)
@@ -122,7 +121,8 @@ namespace plantSystem
     void PlantSystem_Update(State& s, float dt,
                             AEVec2 playerPos, HeldState& held,
                             const AEVec2* potPositions, int potCount,
-                            const ChestData* chests, int chestCount)
+                            const ChestData* chests, int chestCount,
+                            AEVec2 dustbinPos)
     {
         const int count = (potCount > MAX_PLANTS) ? MAX_PLANTS : potCount;
 
@@ -140,6 +140,7 @@ namespace plantSystem
         if (AEInputCheckTriggered(AEVK_E) && held.type == HeldItem::NONE)
         {
             bool harvested = false;
+            const float radiusSq = INTERACT_RADIUS * INTERACT_RADIUS;
 
             // 1a — harvest fully-grown plant
             for (int i = 0; i < count && !harvested; ++i)
@@ -147,31 +148,29 @@ namespace plantSystem
                 if (!s.plants[i].active || s.plants[i].stage != STAGE_FULLY_GROWN) continue;
                 float dx = s.plants[i].pos.x - playerPos.x;
                 float dy = s.plants[i].pos.y - playerPos.y;
-                if (std::fabsf(dx) < (PLAYER_INTERACT_HW + PROP_INTERACT_HW) &&
-                    std::fabsf(dy) < (PLAYER_INTERACT_HH + PROP_INTERACT_HH))
-                {
-                    held.flower     = static_cast<FlowerType>(s.plants[i].seedType);
-                    held.type       = HeldItem::FLOWER;
-                    AEVec2 savedPos = potPositions[i];
-                    s.plants[i]     = Plant{};        // reset (clears active flag)
-                    s.plants[i].pos = savedPos;       // restore world position
-                    harvested       = true;
-                }
+                if (dx * dx + dy * dy > radiusSq) continue;
+                held.flower = static_cast<FlowerType>(s.plants[i].seedType);
+                held.type = HeldItem::FLOWER;
+                AEVec2 savedPos = potPositions[i];
+                s.plants[i] = Plant{};
+                s.plants[i].pos = savedPos;
+                harvested = true;
             }
 
-            // 1b — pick seed from nearest touching chest only if no harvest occurred
+            // 1b — pick seed from nearest chest within radius
             if (!harvested)
             {
-                int   bestIdx  = -1;
-                float bestDist = 1e9f;
+                int   bestIdx = -1;
+                float bestDist = radiusSq;
                 for (int c = 0; c < chestCount; ++c)
                 {
                     float dx = chests[c].pos.x - playerPos.x;
                     float dy = chests[c].pos.y - playerPos.y;
-                    if (std::fabsf(dx) >= (PLAYER_INTERACT_HW + PROP_INTERACT_HW) ||
-                        std::fabsf(dy) >= (PLAYER_INTERACT_HH + PROP_INTERACT_HH)) continue;
-                    float d = dx * dx + dy * dy;
-                    if (d < bestDist) { bestDist = d; bestIdx = c; }
+                    float dist = dx * dx + dy * dy;
+                    if (dist < bestDist) { 
+                        bestDist = dist; 
+                        bestIdx = c; 
+                    }
                 }
                 if (bestIdx >= 0)
                 {
@@ -185,24 +184,28 @@ namespace plantSystem
         //--------------------------------------------------------------------
         else if (AEInputCheckTriggered(AEVK_E) && held.type == HeldItem::SEED)
         {
+            int   bestIdx = -1;
+            float bestDist = INTERACT_RADIUS * INTERACT_RADIUS;
             for (int i = 0; i < count; ++i)
             {
                 if (s.plants[i].active) continue;
-
                 float dx = s.plants[i].pos.x - playerPos.x;
                 float dy = s.plants[i].pos.y - playerPos.y;
-                if (std::fabsf(dx) < (PLAYER_INTERACT_HW + PROP_INTERACT_HW) &&
-                    std::fabsf(dy) < (PLAYER_INTERACT_HH + PROP_INTERACT_HH))
-                {
-                    s.plants[i].active     = true;
-                    s.plants[i].seedType   = held.seed;
-                    s.plants[i].growth     = 0.f;
-                    s.plants[i].stage      = STAGE_SEED;
-                    s.plants[i].isWatered  = false;
-                    s.plants[i].waterTimer = 0.f;
-                    held = HeldState{};
-                    break;
+                float dist = dx * dx + dy * dy;
+                if (dist < bestDist) { 
+                    bestDist = dist; 
+                    bestIdx = i; 
                 }
+            }
+            if (bestIdx >= 0)
+            {
+                s.plants[bestIdx].active = true;
+                s.plants[bestIdx].seedType = held.seed;
+                s.plants[bestIdx].growth = 0.f;
+                s.plants[bestIdx].stage = STAGE_SEED;
+                s.plants[bestIdx].isWatered = false;
+                s.plants[bestIdx].waterTimer = 0.f;
+                held = HeldState{};
             }
         }
 
@@ -225,8 +228,9 @@ namespace plantSystem
         //--------------------------------------------------------------------
         // Step 4: R pressed → refill watering can
         //--------------------------------------------------------------------
-        if (AEInputCheckTriggered(AEVK_R))
+        if (AEInputCheckTriggered(AEVK_R)) {
             s.can.water = s.can.maxWater;
+        }
 
         //--------------------------------------------------------------------
         // Step 5: Per-plant growth tick
@@ -256,6 +260,17 @@ namespace plantSystem
             if (p.growth > 1.f) p.growth = 1.f;
             p.stage = StageFromGrowth(p.growth);
         }
+
+        //--------------------------------------------------------------------
+         // Step 6: Dustbin
+         //--------------------------------------------------------------------
+        float dx = dustbinPos.x - playerPos.x;
+        float dy = dustbinPos.y - playerPos.y;
+        if (AEInputCheckTriggered(AEVK_V) &&
+            dx * dx + dy * dy < INTERACT_RADIUS * INTERACT_RADIUS)
+        {
+            held = HeldState{};
+        }
     }
 
     //========================================================================
@@ -274,11 +289,12 @@ namespace plantSystem
         {
             const Plant& p = s.plants[i];
             float cx = p.pos.x, cy = p.pos.y;
+            float plantedcY = p.pos.y + 32.0f;
 
             if (!p.active)
             {
                 // Empty pot — draw at 64×32 (matching pot_planted.png source dimensions)
-                BasicUtilities::drawUICard(s.mesh, s.potPlantedTex, cx, cy, 64.f, 32.f);
+                BasicUtilities::drawUICard(s.mesh, s.potTex, cx, cy, 64.f, 64.f);
                 continue;
             }
             // Active pot — plant stage sprite already includes the pot visual; skip pot draw
@@ -297,11 +313,12 @@ namespace plantSystem
                 plantTex = s.stageTex[(int)p.stage];
             }
             if (plantTex)
-                BasicUtilities::drawUICard(s.mesh, plantTex, cx, cy, 64.f, 128.f);
-
+            {
+                BasicUtilities::drawUICard(s.mesh, plantTex, cx, plantedcY, 64.f, 128.f);
+            }
             // Growth bar — hidden once fully grown (plant sprite communicates completion)
             if (p.stage != STAGE_FULLY_GROWN)
-                DrawGrowthBar(s.mesh, cx, cy, p.growth);
+                DrawGrowthBar(s.mesh, cx, cy , p.growth);
         }
     }
 
@@ -312,7 +329,6 @@ namespace plantSystem
     {
         if (s.mesh)          { AEGfxMeshFree(s.mesh);               s.mesh          = nullptr; }
         if (s.potTex)        { AEGfxTextureUnload(s.potTex);        s.potTex        = nullptr; }
-        if (s.potPlantedTex) { AEGfxTextureUnload(s.potPlantedTex); s.potPlantedTex = nullptr; }
         if (s.chestTex)      { AEGfxTextureUnload(s.chestTex);      s.chestTex      = nullptr; }
 
         // Stage textures: SPROUT and GROWING share a pointer — unload once
@@ -346,6 +362,7 @@ namespace plantSystem
         for (int i = 0; i < s.potCount; ++i)
         {
             if (!s.plants[i].active) continue;
+            if (s.plants[i].stage == STAGE_FULLY_GROWN) continue;
             float dx   = s.plants[i].pos.x - playerPos.x;
             float dy   = s.plants[i].pos.y - playerPos.y;
             float dist = std::sqrt(dx * dx + dy * dy);

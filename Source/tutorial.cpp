@@ -139,18 +139,25 @@ namespace
     AEGfxTexture* infoPanelTex = nullptr;
     AEGfxTexture* goldIconTex = nullptr;
     AEGfxTexture* clockIconTex = nullptr;
+    AEGfxTexture* waterIconTex = nullptr;
 
-    const AEVec2 PANEL_POS = { 640.f, 400.f }; // World coordinates
+    const AEVec2 PANEL_POS = { 640.f, 360.f };
     const float  PANEL_W = 300.f;
-    const float  PANEL_H = 80.f;
+    const float  PANEL_H = 120.f;
     const float  ICON_SIZE = 30.f;
 
-    // Info panel elements
-    // Offsetes from PANEL_POS, adjust element positions here
-    const AEVec2 GOLD_ICON_OFF = { -100.f, 0.f };  // Gold icon centre 
-    const AEVec2 GOLD_TEXT_OFF = { -65.f, 0.f };  // Gold text 
-    const AEVec2 CLOCK_ICON_OFF = { 10.f,   0.f };  // Clock icon centre
-    const AEVec2 CLOCK_TEXT_OFF = { 75.f, 0.f };  // Clock text
+    const AEVec2 GOLD_ICON_OFF = { -100.f, 15.f };
+    const AEVec2 GOLD_TEXT_OFF = { -65.f, 15.f };
+    const AEVec2 CLOCK_ICON_OFF = { 10.f, 15.f };
+    const AEVec2 CLOCK_TEXT_OFF = { 75.f, 15.f };
+
+    const AEVec2 DROPLET_ICON_OFF = { -100.f, -24.f };
+    const float  WATER_BAR_W = 180.f;
+    const float  WATER_BAR_H = 24.f;
+    const float  WATER_BAR_OY = -25.f;
+
+
+
 
     // Collision data 
     constexpr float PLAYER_HW = PlayerSystem::HALF_W;
@@ -294,6 +301,7 @@ void Tutorial_Load()
     infoPanelTex = BasicUtilities::loadTexture("Assets/info_panel.png");
     goldIconTex = BasicUtilities::loadTexture("Assets/gold_icon.png");
     clockIconTex = BasicUtilities::loadTexture("Assets/clock_icon.png");
+    waterIconTex = BasicUtilities::loadTexture("Assets/water_droplet.png");
 
     // Tutorial task textures
     taskPanelTex = BasicUtilities::loadTexture("Assets/info_panel_light.png");
@@ -790,11 +798,17 @@ void Tutorial_Draw()
             PANEL_POS.x + CLOCK_ICON_OFF.x, PANEL_POS.y + CLOCK_ICON_OFF.y,
             ICON_SIZE, ICON_SIZE);
 
+        BasicUtilities::drawUICard(squareMesh, waterIconTex,
+            PANEL_POS.x + DROPLET_ICON_OFF.x, PANEL_POS.y + DROPLET_ICON_OFF.y, 
+            ICON_SIZE, ICON_SIZE);
+
+
         // Text: camera-compensated (world Y − camera Y = screen Y)
         // Camera X is always 0 in this state, so world X = screen X.
-        char goldBuf[16], timeBuf[16];
+        char goldBuf[16], timeBuf[16], waterBuf[16];
         sprintf_s(goldBuf, sizeof(goldBuf), "%d", Gold::GetTotal());
         TimeOfDay::GetClockString(timeBuf, sizeof(timeBuf));
+        sprintf_s(waterBuf, sizeof(waterBuf), "%.0f%%", (plantState.can.water / plantState.can.maxWater) * 100.f);
 
         BasicUtilities::drawText(fontId, goldBuf,
             PANEL_POS.x + GOLD_TEXT_OFF.x,
@@ -805,6 +819,16 @@ void Tutorial_Draw()
             PANEL_POS.x + CLOCK_TEXT_OFF.x,
             (PANEL_POS.y + CLOCK_TEXT_OFF.y) - currentCamY,
             0.8f, 1.f, 1.f, 1.f);           // white
+
+        float fill = plantState.can.water / plantState.can.maxWater;
+        BasicUtilities::drawFillBar(squareMesh,
+            PANEL_POS.x + 20.f, PANEL_POS.y + WATER_BAR_OY,
+            WATER_BAR_W, WATER_BAR_H, fill,
+            0.2f, 0.6f, 1.f);
+
+        BasicUtilities::drawText(fontId, waterBuf,
+            PANEL_POS.x + 20.f, (PANEL_POS.y + WATER_BAR_OY) - currentCamY,
+            0.55f, 1.f, 1.f, 1.f, 1.f);
 
         // ── Tutorial task panel + pointer ────────────────────────────────────
         if (panelState != PANEL_HIDDEN)

@@ -124,6 +124,8 @@ namespace
     int                     poisonTableCount = 0;
     TableSystem::State      tableState;
 
+	AEVec2				  dustbinPos{};
+
     //========================================================================
     // Customer pool
     //========================================================================
@@ -155,16 +157,23 @@ namespace
     AEGfxTexture* infoPanelTex = nullptr;
     AEGfxTexture* goldIconTex = nullptr;
     AEGfxTexture* clockIconTex = nullptr;
+    AEGfxTexture* waterIconTex = nullptr;
+	AEGfxTexture* dustbinTex = nullptr;
 
-    const AEVec2 PANEL_POS = { 640.f, 400.f };
+    const AEVec2 PANEL_POS = { 640.f, 360.f };
     const float  PANEL_W = 300.f;
-    const float  PANEL_H = 80.f;
+    const float  PANEL_H = 120.f;
     const float  ICON_SIZE = 30.f;
 
-    const AEVec2 GOLD_ICON_OFF = { -100.f, 0.f };
-    const AEVec2 GOLD_TEXT_OFF = { -65.f, 0.f };
-    const AEVec2 CLOCK_ICON_OFF = { 10.f, 0.f };
-    const AEVec2 CLOCK_TEXT_OFF = { 75.f, 0.f };
+    const AEVec2 GOLD_ICON_OFF = { -100.f, 15.f };
+    const AEVec2 GOLD_TEXT_OFF = { -65.f, 15.f };
+    const AEVec2 CLOCK_ICON_OFF = { 10.f, 15.f };
+    const AEVec2 CLOCK_TEXT_OFF = { 75.f, 15.f };
+
+    const AEVec2 DROPLET_ICON_OFF = { -100.f, -24.f };
+    const float  WATER_BAR_W = 180.f;
+    const float  WATER_BAR_H = 24.f;
+    const float  WATER_BAR_OY = -25.f;  // offset below PANEL_POS.y
 
     //========================================================================
     // HUD icon textures
@@ -249,6 +258,8 @@ void Level1_Load()
     infoPanelTex = BasicUtilities::loadTexture("Assets/info_panel.png");
     goldIconTex = BasicUtilities::loadTexture("Assets/gold_icon.png");
     clockIconTex = BasicUtilities::loadTexture("Assets/clock_icon.png");
+    waterIconTex = BasicUtilities::loadTexture("Assets/water_droplet.png");
+	dustbinTex = BasicUtilities::loadTexture("Assets/cauldron.png");
 
     for (int i = 1; i <= 6; ++i)
     {
@@ -286,6 +297,8 @@ void Level1_Initialise()
     Entity::Init();
 
     potCount = Collision::Map_GetCentres(collisionMap, 3, potPositions, plantSystem::MAX_PLANTS);
+
+    Collision::Map_GetCentres(collisionMap, 7, &dustbinPos, 1);
 
     AEVec2 chestPosBuf[MAX_MAP_CHESTS];
     chestCount = Collision::Map_GetCentres(collisionMap, 4, chestPosBuf, MAX_MAP_CHESTS);
@@ -465,11 +478,48 @@ void Level1_Update()
 
             constexpr float ANIM_SPEED = 6.0f;
 
+            // Find nearest chest within radius
+            int nearestChest = -1;
+            float nearestDist = plantSystem::CHEST_INTERACT_RADIUS * plantSystem::CHEST_INTERACT_RADIUS;
+            Entity::FaceDirection facing = PlayerSystem::p1->GetLastDirection();
             for (int i = 0; i < chestCount; ++i)
             {
-                bool inRange =
-                    std::fabsf(chests[i].pos.x - PlayerSystem::p1->GetCoordinates().x) < PLAYER_HW + PROP_COLL_HW &&
-                    std::fabsf(chests[i].pos.y - PlayerSystem::p1->GetCoordinates().y) < PLAYER_HH + PROP_COLL_HH;
+                float dx = chests[i].pos.x - PlayerSystem::p1->GetCoordinates().x;
+                float dy = chests[i].pos.y - PlayerSystem::p1->GetCoordinates().y;
+               
+                // Check chest is on the correct side relative to facing
+                bool facingToward = false;
+                switch (facing)
+                {
+                case Entity::FaceDirection::UP:    
+                    facingToward = (dy > 0.f); 
+                    break;
+                case Entity::FaceDirection::DOWN:  
+                    facingToward = (dy < 0.f); 
+                    break;
+                case Entity::FaceDirection::LEFT:  
+                    facingToward = (dx < 0.f); 
+                    break;
+                case Entity::FaceDirection::RIGHT: 
+                    facingToward = (dx > 0.f); 
+                    break;
+                default: 
+                    break;
+                }
+
+                if (!facingToward) continue;
+
+                float dist = dx * dx + dy * dy;
+                if (dist < nearestDist) { 
+                    nearestDist = dist;
+                    nearestChest = i; 
+                }
+            }
+
+            // Only show tooltip for nearest, ease out all others
+            for (int i = 0; i < chestCount; ++i)
+            {
+                bool inRange = (i == nearestChest);
                 BasicUtilities::tickEase(chestTooltipT[i], inRange, dt, ANIM_SPEED);
             }
 
@@ -510,6 +560,12 @@ void Level1_Update()
                                 fabsf(cy - chests[i].pos.y) < PH + PROP_HH &&
                                 (!topOnly || cy >= chests[i].pos.y - PROP_BOTTOM_ALLOW))
                                 return true;
+                       
+                        // Dustbin
+                        if (fabsf(cx - dustbinPos.x) < PW + PROP_HW &&
+                            fabsf(cy - dustbinPos.y) < PH + PROP_HH &&
+                            (!topOnly || cy >= dustbinPos.y - PROP_BOTTOM_ALLOW))
+                            return true;
 
                         for (int i = 0; i < tableState.count; ++i)
                             if (fabsf(cx - tableState.tables[i].pos.x) < PW + TableSystem::TABLE_COLL_HW &&
@@ -568,7 +624,8 @@ void Level1_Update()
                 potPositions,
                 potCount,
                 chests,
-                chestCount);
+                chestCount, 
+                dustbinPos);
 
             CustomerSystem::CustomerPool_Update(customerPool, dt);
 
@@ -627,6 +684,8 @@ void Level1_Draw()
         plantSystem::PlantSystem_Draw(plantState, chests, chestCount);
         TableSystem::TableSystem_Draw(tableState, flowerIconTex);
         CustomerSystem::CustomerPool_Draw(customerPool, fontId);
+        BasicUtilities::drawUICard(squareMesh, dustbinTex,
+            dustbinPos.x, dustbinPos.y, 64.f, 64.f);
         Entity::Draw();
 
         if (PlayerSystem::p1->GetLastDirection() == Entity::FaceDirection::UP)
@@ -653,10 +712,14 @@ void Level1_Draw()
             PANEL_POS.x + GOLD_ICON_OFF.x, PANEL_POS.y + GOLD_ICON_OFF.y, ICON_SIZE, ICON_SIZE);
         BasicUtilities::drawUICard(squareMesh, clockIconTex,
             PANEL_POS.x + CLOCK_ICON_OFF.x, PANEL_POS.y + CLOCK_ICON_OFF.y, ICON_SIZE, ICON_SIZE);
+        BasicUtilities::drawUICard(squareMesh, waterIconTex,
+            PANEL_POS.x + DROPLET_ICON_OFF.x, PANEL_POS.y + DROPLET_ICON_OFF.y, ICON_SIZE, ICON_SIZE);
 
-        char goldBuf[16], timeBuf[16];
+
+        char goldBuf[16], timeBuf[16], waterBuf[16];
         sprintf_s(goldBuf, sizeof(goldBuf), "%d", Gold::GetTotal());
         TimeOfDay::GetClockString(timeBuf, sizeof(timeBuf));
+        sprintf_s(waterBuf, sizeof(waterBuf), "%.0f%%", (plantState.can.water / plantState.can.maxWater) * 100.f);
 
         BasicUtilities::drawText(
             fontId,
@@ -672,15 +735,22 @@ void Level1_Draw()
             (PANEL_POS.y + CLOCK_TEXT_OFF.y) - currentCamY,
             0.8f, 1.f, 1.f, 1.f);
 
+
+        float fill = plantState.can.water / plantState.can.maxWater;
+        BasicUtilities::drawFillBar(squareMesh,
+            PANEL_POS.x + 20.f, PANEL_POS.y + WATER_BAR_OY,
+            WATER_BAR_W, WATER_BAR_H, fill,
+            0.2f, 0.6f, 1.f);
+
+        BasicUtilities::drawText(fontId, waterBuf,
+            PANEL_POS.x + 20.f, (PANEL_POS.y + WATER_BAR_OY) - currentCamY,
+            0.55f, 1.f, 1.f, 1.f, 1.f);
+
         if (cameraReady && PlayerSystem::p1)
         {
             for (int i = 0; i < chestCount; ++i)
             {
-                float dx = chests[i].pos.x - PlayerSystem::p1->GetCoordinates().x;
-                float dy = chests[i].pos.y - PlayerSystem::p1->GetCoordinates().y;
-                if (std::fabsf(dx) >= PLAYER_HW + PROP_COLL_HW ||
-                    std::fabsf(dy) >= PLAYER_HH + PROP_COLL_HH)
-                    continue;
+               
                 if (chestTooltipT[i] <= 0.f)
                     continue;
 
@@ -930,6 +1000,8 @@ void Level1_Unload()
     AEGfxTextureUnload(infoPanelTex);
     AEGfxTextureUnload(goldIconTex);
     AEGfxTextureUnload(clockIconTex);
+    AEGfxTextureUnload(waterIconTex);
+    AEGfxTextureUnload(dustbinTex);
     infoPanelTex = goldIconTex = clockIconTex = nullptr;
 
     for (int i = 1; i <= 6; ++i)

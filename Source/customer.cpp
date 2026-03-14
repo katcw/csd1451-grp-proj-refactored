@@ -187,38 +187,12 @@ namespace
         // ── Patience bar (WAITING only) ──────────────────────────────────────
         if (c.state == CustomerState::WAITING)
         {
-            const float fill  = c.patience / CustomerSystem::PATIENCE_MAX;
-            const float barCx = c.GetCoordinates().x;
-            const float barCy = c.GetCoordinates().y + PBAR_OFFSET_Y;
-
-            // Colour: green → yellow → red
+            const float fill = c.patience / CustomerSystem::PATIENCE_MAX;
             const float pr = (fill < 0.5f) ? 1.f : (1.f - fill) * 2.f;
             const float pg = (fill < 0.5f) ? fill * 2.f : 1.f;
-
-            AEGfxSetRenderMode(AE_GFX_RM_COLOR);
-            AEGfxSetBlendMode(AE_GFX_BM_BLEND);
-            AEGfxSetTransparency(1.f);
-            AEGfxSetColorToAdd(0.f, 0.f, 0.f, 0.f);
-            AEMtx33 sclMtx{}, trsMtx{}, mtx{};
-
-            // Background (dark)
-            AEGfxSetColorToMultiply(0.2f, 0.2f, 0.2f, 1.f);
-            AEMtx33Scale(&sclMtx, PBAR_W, PBAR_H);
-            AEMtx33Trans(&trsMtx, barCx, barCy);
-            AEMtx33Concat(&mtx, &trsMtx, &sclMtx);
-            AEGfxSetTransform(mtx.m);
-            AEGfxMeshDraw(bubbleMesh, AE_GFX_MDM_TRIANGLES);
-
-            // Filled portion (left-anchored)
-            if (fill > 0.f)
-            {
-                AEGfxSetColorToMultiply(pr, pg, 0.f, 1.f);
-                AEMtx33Scale(&sclMtx, PBAR_W * fill, PBAR_H);
-                AEMtx33Trans(&trsMtx, barCx - PBAR_W * 0.5f + PBAR_W * fill * 0.5f, barCy);
-                AEMtx33Concat(&mtx, &trsMtx, &sclMtx);
-                AEGfxSetTransform(mtx.m);
-                AEGfxMeshDraw(bubbleMesh, AE_GFX_MDM_TRIANGLES);
-            }
+            BasicUtilities::drawFillBar(bubbleMesh,
+                c.GetCoordinates().x, c.GetCoordinates().y + PBAR_OFFSET_Y,
+                PBAR_W, PBAR_H, fill, pr, pg, 0.f);
         }
 
         // -- Patience penalty (WRONG ORDER) — red flash over the customer sprite --

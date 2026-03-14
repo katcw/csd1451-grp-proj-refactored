@@ -234,6 +234,40 @@ namespace BasicUtilities
         AEGfxMeshDraw(mesh, AE_GFX_MDM_TRIANGLES);
     }
 
+    void drawFillBar(AEGfxVertexList* mesh,
+        float cx, float cy, float w, float h,
+        float fill,
+        float fillR, float fillG, float fillB)
+    {
+        AEMtx33 scl{}, trs{}, mtx{};
+        AEGfxSetRenderMode(AE_GFX_RM_COLOR);
+        AEGfxSetBlendMode(AE_GFX_BM_BLEND);
+        AEGfxSetTransparency(1.f);
+        AEGfxSetColorToAdd(0.f, 0.f, 0.f, 0.f);
+
+        // Background
+        AEGfxSetColorToMultiply(0.2f, 0.2f, 0.2f, 1.f);
+        AEMtx33Scale(&scl, w, h);
+        AEMtx33Trans(&trs, cx, cy);
+        AEMtx33Concat(&mtx, &trs, &scl);
+        AEGfxSetTransform(mtx.m);
+        AEGfxMeshDraw(mesh, AE_GFX_MDM_TRIANGLES);
+
+        // Fill
+        if (fill > 0.f)
+        {
+            AEGfxSetColorToMultiply(fillR, fillG, fillB, 1.f);
+            float fillW = w * fill;
+            AEMtx33Scale(&scl, fillW, h);
+            AEMtx33Trans(&trs, cx - w * 0.5f + fillW * 0.5f, cy);
+            AEMtx33Concat(&mtx, &trs, &scl);
+            AEGfxSetTransform(mtx.m);
+            AEGfxMeshDraw(mesh, AE_GFX_MDM_TRIANGLES);
+        }
+    }
+
+
+
     /**
      * @brief Loads and parses a JSON file from disk.
      *

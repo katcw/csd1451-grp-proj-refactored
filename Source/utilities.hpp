@@ -130,6 +130,13 @@ namespace BasicUtilities
 
 	void Draw_UI_Element(AEGfxVertexList* mesh, AEGfxTexture* texture, AEMtx33& transform);
 
+	// Draws a left-anchored fill bar (background + colored fill).
+	// fill = [0,1]. fillR/G/B = color of the filled portion.
+	void drawFillBar(AEGfxVertexList* mesh,
+		float cx, float cy, float w, float h,
+		float fill,
+		float fillR, float fillG, float fillB);
+
 	// ----------------------------------------------------------------------
 	//						      JSON File Loader
 	// ----------------------------------------------------------------------
