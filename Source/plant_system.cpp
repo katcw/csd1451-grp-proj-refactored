@@ -20,12 +20,12 @@ namespace plantSystem
     static const float s_seedRates[(int)SeedType::COUNT] =
     {
         1.0f, // NONE
-        1.0f, // ROSE
-        1.1f, // TULIP
-        0.8f, // SUNFLOWER  (slower; big flower)
-        1.3f, // DAISY      (fastest; simple flower)
-        0.7f, // LILY
-        0.6f, // ORCHID     (slowest; exotic)
+        2.0f, // ROSE
+        2.1f, // TULIP
+        2.8f, // SUNFLOWER  (slower; big flower)
+        2.3f, // DAISY      (fastest; simple flower)
+        2.7f, // LILY
+        2.6f, // ORCHID     (slowest; exotic)
     };
 
     static PlantStage StageFromGrowth(float growth)

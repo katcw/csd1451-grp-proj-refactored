@@ -545,7 +545,7 @@ void Level1_Update()
             {
                 constexpr float PW = PLAYER_HW, PH = PLAYER_HH;
                 constexpr float PROP_HW = PROP_COLL_HW, PROP_HH = PROP_COLL_HH;
-                constexpr float PROP_BOTTOM_ALLOW = 0.f;
+                constexpr float PROP_BOTTOM_ALLOW = 16.f;
 
                 auto isPropBlocked = [&](float cx, float cy, bool topOnly) -> bool
                     {
