@@ -61,7 +61,6 @@ public:
 namespace CustomerSystem
 {
     constexpr float SPEED = 120.f;
-    constexpr float ARRIVE_EPS = 2.f;     // distance threshold to snap to target
 
     // Vertical offset of order bubble in world coordinates
     constexpr float BUBBLE_OFFSET_Y = 80.f;
@@ -71,7 +70,7 @@ namespace CustomerSystem
     //========================================================================
     struct State
     {
-        Customer           customer;
+        Customer*          customer = nullptr;
         AEVec2             spawnPos = {};
         AEVec2             targetPos = {};
         bool               active = false;
@@ -120,7 +119,7 @@ namespace CustomerSystem
     // Returns true once the customer has reached the target and is WAITING.
     inline bool IsWaiting(const State& s)
     {
-        return s.active && s.customer.state == CustomerState::WAITING;
+        return s.active && s.customer && s.customer->state == CustomerState::WAITING;
     }
 
     //========================================================================
@@ -144,7 +143,7 @@ namespace CustomerSystem
         // Per-customer instance data (no GPU resources)
         struct Slot
         {
-            Customer customer;
+            Customer* customer = nullptr;
             AEVec2   spawnPos = {};
             AEVec2   targetPos = {};
             bool     active = false;

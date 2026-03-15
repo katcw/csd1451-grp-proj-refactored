@@ -445,7 +445,7 @@ void Level2_Update()
     {
         const auto& sl = customerPool.slots[ci];
         BasicUtilities::tickEase(customerTooltipT[ci],
-            sl.active && sl.customer.state == CustomerState::WAITING, dt, ANIM_SPEED);
+            sl.active && sl.customer->state == CustomerState::WAITING, dt, ANIM_SPEED);
     }
 
     AEVec2 prevPos = PlayerSystem::p1->GetCoordinates();
@@ -479,10 +479,10 @@ void Level2_Update()
                 for (int ci = 0; ci < CustomerSystem::POOL_MAX; ++ci)
                 {
                     const auto& sl = customerPool.slots[ci];
-                    if (!sl.active || sl.customer.state != CustomerState::WAITING) continue;
-                    if (fabsf(cx - sl.customer.GetCoordinates().x) < PW + PROP_HW &&
-                        fabsf(cy - sl.customer.GetCoordinates().y) < PH + PROP_HH &&
-                        (!topOnly || cy >= sl.customer.GetCoordinates().y - PROP_BOTTOM_ALLOW))
+                    if (!sl.active || sl.customer->state != CustomerState::WAITING) continue;
+                    if (fabsf(cx - sl.customer->GetCoordinates().x) < PW + PROP_HW &&
+                        fabsf(cy - sl.customer->GetCoordinates().y) < PH + PROP_HH &&
+                        (!topOnly || cy >= sl.customer->GetCoordinates().y - PROP_BOTTOM_ALLOW))
                         return true;
                 }
 

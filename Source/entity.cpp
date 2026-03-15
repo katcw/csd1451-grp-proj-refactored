@@ -10,15 +10,17 @@
 #include "AEEngine.h"
 #include "entity.hpp"
 
- // For player-specific logic
+ // For child-specific logic
 #include "player.hpp"
+#include "customer.hpp"
+#include "utilities.hpp"
 
 namespace PS = PlayerSystem;
 
 namespace Entity
 {
     // Forward declarations
-    Node* AStar(Node start, Node end);
+    Node* AStar(Node start, Node end, const EntityBase* self);
 
     // Pointer to currently active collision map used by pathfinding.
     // Set via SetCollisionMap() from level/tutor init after Map_Load.
@@ -45,41 +47,15 @@ namespace Entity
     //                          Utility helpers
     // =========================================================================
 
-    AEVec2 IndexToWorld(Index idx)
-    {
-        if (s_collisionMap && s_collisionMap->ready)
-        {
-            float ts = s_collisionMap->tileSize;
-            return {
-                s_collisionMap->origin.x + idx.x * ts + ts * 0.5f,
-                s_collisionMap->origin.y + idx.y * ts + ts * 0.5f
-            };
-        }
-        return { idx.x * TILE_SIZE + TILE_SIZE * 0.5f,
-                 idx.y * TILE_SIZE + TILE_SIZE * 0.5f };
-    }
+    AEVec2 IndexToWorld(Index idx);
 
-    Index AdjacentIndex(Index idx, FaceDirection dir)
-    {
-        switch (dir)
-        {
-        case FaceDirection::LEFT:  return { idx.x - 1, idx.y };
-        case FaceDirection::RIGHT: return { idx.x + 1, idx.y };
-        case FaceDirection::UP:    return { idx.x, idx.y + 1 };
-        case FaceDirection::DOWN:  return { idx.x, idx.y - 1 };
-        default:                   return idx;
-        }
-    }
+    Index AdjacentIndex(Index idx, FaceDirection dir);
 
-    bool IsTilePassable(Index idx)
-    {
-        if (!s_collisionMap || !s_collisionMap->ready) return false;
-        if (idx.x < 0 || idx.y < 0) return false;
-        if (idx.x >= s_collisionMap->width || idx.y >= s_collisionMap->height) return false;
+    bool IsTilePassable(Index idx);
 
-        size_t flat = static_cast<size_t>(idx.y) * s_collisionMap->width + static_cast<size_t>(idx.x);
-        return !s_collisionMap->solid[flat];
-    }
+    bool IsEntityBlocking(Index idx);
+
+    bool IsEntityBlockingDynamic(Index idx, const EntityBase* self);
 
     // =========================================================================
     //                        EntityBase class definitions
@@ -101,19 +77,16 @@ namespace Entity
         , facing(FaceDirection::RIGHT)
         , lastDirection(FaceDirection::DOWN)
         , moveState(MoveState::DEFAULT)
+        , waitTimer(0.0f)
+        , finalGoal{ -1, -1 }
+        , hasFinalGoal(false)
         , active(true)
         , isAI(false)
         , holding(false)
-        //, mesh(nullptr)
-        //, texture(nullptr)
-        //, drawScale{ 64.0f, 64.0f }
-        //, drawMode(DrawMode::NONE)
     {}
 
     EntityBase::EntityBase(ID id_, EntityType type_, AEVec2 coord, AEVec2 nextCoord, Index currentIdx, Index nextIdx,
-                           float spd, FaceDirection dir, MoveState st, bool act, bool AI, bool hold
-                           /*, AEGfxVertexList* mesh_, AEGfxTexture* tex_,
-                              AEVec2 scale_, DrawMode mode_*/)
+                           float spd, FaceDirection dir, MoveState st, bool act, bool AI, bool hold)
         : id(id_)
         , type(type_)
         , position(coord)
@@ -125,18 +98,15 @@ namespace Entity
         , facing(dir)
         , lastDirection(dir)
         , moveState(st)
+        , waitTimer(0.0f)
+        , finalGoal{ -1, -1 }
+        , hasFinalGoal(false)
         , active(act)
         , isAI(AI)
         , holding(hold)
-        //, mesh(mesh_)
-        //, texture(tex_)
-        //, drawScale(scale_)
-        //, drawMode(mode_)
     {}
 
-    EntityBase::EntityBase(ID id_, EntityType type_, AEVec2 worldPos
-                           /*, AEGfxVertexList* mesh_, AEGfxTexture* tex_,
-                              AEVec2 scale_, DrawMode mode_*/)
+    EntityBase::EntityBase(ID id_, EntityType type_, AEVec2 worldPos)
         : id(id_)
         , type(type_)
         , position(worldPos)
@@ -148,13 +118,12 @@ namespace Entity
         , facing(FaceDirection::DOWN)
         , lastDirection(FaceDirection::DOWN)
         , moveState(MoveState::DEFAULT)
+        , waitTimer(0.0f)
+        , finalGoal{ -1, -1 }
+        , hasFinalGoal(false)
         , active(true)
         , isAI(false)
         , holding(false)
-        //, mesh(mesh_)
-        //, texture(tex_)
-        //, drawScale(scale_)
-        //, drawMode(mode_)
     {
         // Derive grid index from world position using the active collision map
         UpdateIndex();
@@ -183,10 +152,12 @@ namespace Entity
     bool EntityBase::IsCoordsSame() const { return (position.x == nextCoordinates.x) && (position.y == nextCoordinates.y); }
     bool EntityBase::IsIndexSame() const { return (current.x == next.x) && (current.y == next.y); }
 
-    //AEGfxVertexList* EntityBase::GetMesh() const { return mesh; }
-    //AEGfxTexture* EntityBase::GetTexture() const { return texture; }
-    //AEVec2 EntityBase::GetDrawScale() const { return drawScale; }
-    //DrawMode EntityBase::GetDrawMode() const { return drawMode; }
+    void EntityBase::SetFinalGoal(Index idx) { finalGoal = idx; hasFinalGoal = true; }
+    Index EntityBase::GetFinalGoal() const { return finalGoal; }
+    bool EntityBase::HasFinalGoal() const { return hasFinalGoal; }
+    void EntityBase::ClearFinalGoal() { hasFinalGoal = false; }
+    float& EntityBase::RefWaitTimer() { return waitTimer; }
+
 
     // -------------------------------------------------------------------------
     //                         Reference Getters
@@ -217,11 +188,6 @@ namespace Entity
     void EntityBase::SetActive(bool act) { active = act; }
     void EntityBase::SetAI(bool AI) { isAI = AI; }
     void EntityBase::SetHolding(bool hold) { holding = hold; }
-
-    //void EntityBase::SetMesh(AEGfxVertexList* m) { mesh = m; }
-    //void EntityBase::SetTexture(AEGfxTexture* tex) { texture = tex; }
-    //void EntityBase::SetDrawScale(AEVec2 scale) { drawScale = scale; }
-    //void EntityBase::SetDrawMode(DrawMode mode) { drawMode = mode; }
 
     // =========================================================================
     //                         Update functions (position, index, etc.)
@@ -309,11 +275,11 @@ namespace Entity
         Index startIdx = this->GetCurrentIndex();
 
         Node startNode{ startIdx, 0, 0, 0, nullptr };
-        Node targetNode{ this->GetNextIndex(), 0, 0, 0, nullptr };
+        Node targetNode{ hasFinalGoal ? finalGoal : this->GetNextIndex(), 0, 0, 0, nullptr };
 
         this->ClearPath();
 
-        Node* newPath = AStar(startNode, targetNode);
+        Node* newPath = AStar(startNode, targetNode, this);
         if (newPath)
         {
             std::vector<Node> tmp;
@@ -488,7 +454,7 @@ namespace Entity
         return std::abs(a.index.x - b.index.x) + std::abs(a.index.y - b.index.y);
     }
 
-    static std::vector<Node> GetNeighbors(const Node& current)
+    static std::vector<Node> GetNeighbors(const Node& current, const EntityBase* self)
     {
         std::vector<Node> out;
 
@@ -505,6 +471,7 @@ namespace Entity
         for (const Index& idx : candidates)
         {
             if (!IsTilePassable(idx)) continue;
+            if (IsEntityBlockingDynamic(idx, self)) continue;
 
             Node n;
             n.index = idx;
@@ -545,7 +512,7 @@ namespace Entity
         }
     }
 
-    Node* AStar(Node start, Node end)
+    Node* AStar(Node start, Node end, const EntityBase* self)
     {
         constexpr size_t MAX_SEARCH_NODES = 2000;
         std::vector<Node*> open;
@@ -596,7 +563,7 @@ namespace Entity
             RemoveFromOpen(open, current);
             closed.push_back(current);
 
-            for (Node neighbor : GetNeighbors(*current))
+            for (Node neighbor : GetNeighbors(*current, self))
             {
                 if (InClosed(neighbor, closed))
                     continue;
@@ -637,9 +604,46 @@ namespace Entity
     //                  Entity system pipeline stages
     // =============================================================================
 
+    void UpdateAI()
+    {
+        constexpr float WAIT_TIME_BEFORE_REPATH = 1.0f;
+
+        for (int i = 0; i < MAX_ENTITIES; i++)
+        {
+            EntityBase* e = entities[i];
+            if (!e || !e->IsActive() || !e->IsAI()) continue;
+
+            if (e->IsPathEmpty()) 
+            {
+                e->SetMoveState(MoveState::IDLE);
+                continue; 
+            }
+
+            Index nextTarget = e->GetPath().back().index;
+            if (IsEntityBlockingDynamic(nextTarget, e))
+            {
+                e->RefWaitTimer() += dt;
+                e->SetMoveState(MoveState::IDLE);
+
+                // Wait exceeded threshold - try to repath around!
+                if (e->RefWaitTimer() >= WAIT_TIME_BEFORE_REPATH)
+                {
+                    e->SetPath(); 
+                    e->RefWaitTimer() = 0.0f;
+                }
+            }
+            else
+            {
+                e->RefWaitTimer() = 0.0f;
+                e->FollowPath();
+            }
+        }
+    }
+
     void UpdatePositions()
     {
         PS::Update(dt);
+        UpdateAI();
     }
 
     void HandleCollisions()
@@ -650,9 +654,6 @@ namespace Entity
         {
             EntityBase* e = entities[i];
             if (!e || !e->IsActive()) continue;
-
-            // AI entities rely on A* which already avoids solid tiles
-            if (e->IsAI()) continue;
 
             // Skip static props — they don't move
             if (e->GetType() == EntityType::PROP) continue;
@@ -674,19 +675,39 @@ namespace Entity
             bool blockedX = Collision::Map_IsSolidAABB(*s_collisionMap, next.x, cur.y, hw, hh);
             bool blockedY = Collision::Map_IsSolidAABB(*s_collisionMap, blockedX ? cur.x : next.x, next.y, hw, hh);
 
+            // Entity vs Entity AABB Check for smooth local avoidance
+            for (int j = 0; j < MAX_ENTITIES; ++j)
+            {
+                EntityBase* other = entities[j];
+                if (!other || !other->IsActive() || other == e) continue;
+
+                float ohw = 25.0f;
+                float ohh = 50.0f;
+                if (other->GetType() == EntityType::PLAYER) {
+                    ohw = PlayerSystem::HALF_W;
+                    ohh = PlayerSystem::HALF_H;
+                }
+
+                auto CheckAABB = [](float cx1, float cy1, float hw1, float hh1,
+                                    float cx2, float cy2, float hw2, float hh2) {
+                    Collision::AABB a = { {cx1 - hw1, cy1 - hh1}, {cx1 + hw1, cy1 + hh1} };
+                    Collision::AABB b = { {cx2 - hw2, cy2 - hh2}, {cx2 + hw2, cy2 + hh2} };
+                    return Collision::IsSolid_Static(a, b);
+                };
+
+                // Test X local sliding
+                if (CheckAABB(next.x, cur.y, hw, hh, other->GetCoordinates().x, other->GetCoordinates().y, ohw, ohh))
+                    blockedX = true;
+
+                // Test Y local sliding
+                if (CheckAABB(blockedX ? cur.x : next.x, next.y, hw, hh, other->GetCoordinates().x, other->GetCoordinates().y, ohw, ohh))
+                    blockedY = true;
+            }
+
             if (blockedX) next.x = cur.x;
             if (blockedY) next.y = cur.y;
 
-            if (blockedX && blockedY)
-            {
-                AEVec2 tileCentre = IndexToWorld(e->GetCurrentIndex());
-                e->SetCoordinates(tileCentre);
-                e->SetNextCoordinates(tileCentre);
-            }
-            else
-            {
-                e->SetNextCoordinates(next);
-            }
+            e->SetNextCoordinates(next);
         }
     }
 
@@ -728,47 +749,8 @@ namespace Entity
         std::sort(renderList, renderList + renderCount,
             [](const EntityBase* a, const EntityBase* b)
             {
-                int rowA = a->GetCurrentIndex().y;
-                int rowB = b->GetCurrentIndex().y;
-                if (rowA != rowB) return rowA > rowB;
-                return a->GetCurrentIndex().x < b->GetCurrentIndex().x;
+                return a->GetCoordinates().y > b->GetCoordinates().y;
             });
-
-        // -- 3. Iterate and dispatch draw calls ------------------------------
-        //    Currently dispatches to sub-system draw functions by EntityType.
-        //
-        //    [FUTURE] When DrawMode and the rendering members are uncommented,
-        //    this loop will check e->GetDrawMode() and call the appropriate
-        //    Sprite:: function directly:
-        //
-        //    switch (e->GetDrawMode())
-        //    {
-        //    case DrawMode::STATIC:
-        //        BasicUtilities::Sprite::DrawSprite(
-        //            e->GetMesh(), e->GetTexture(),
-        //            e->GetCoordinates(), e->GetDrawScale());
-        //        break;
-        //
-        //    case DrawMode::ANIM_GRID:
-        //        // Requires AnimationState stored on the entity or sub-system.
-        //        // BasicUtilities::Sprite::UpdateAnimation(animState, row, dur, rows, cols);
-        //        // BasicUtilities::Sprite::DrawAnimation(
-        //        //     e->GetMesh(), e->GetTexture(), animState,
-        //        //     e->GetCoordinates(), e->GetDrawScale());
-        //        break;
-        //
-        //    case DrawMode::ANIM_JSON:
-        //        // Requires AnimationState + JMeta stored on entity or sub-system.
-        //        // BasicUtilities::Sprite::UpdateAnimation(animState, meta, tagIndex);
-        //        // BasicUtilities::Sprite::DrawAnimation(
-        //        //     e->GetMesh(), e->GetTexture(), animState,
-        //        //     e->GetCoordinates(), e->GetDrawScale());
-        //        break;
-        //
-        //    case DrawMode::NONE:
-        //    default:
-        //        break;
-        //    }
 
         for (int i = 0; i < renderCount; ++i)
         {
@@ -779,14 +761,119 @@ namespace Entity
             case EntityType::PLAYER:
                 PS::Draw();
                 break;
-
-            // Future: case EntityType::NPC: CustomerSystem::DrawSingle(...); break;
-            // Future: case EntityType::PROP: PropSystem::DrawSingle(...); break;
-
             default:
                 break;
             }
         }
+    }
+
+    //============================================================================
+	// 					     Utilities
+    //============================================================================
+
+    AEVec2 IndexToWorld(Index idx)
+    {
+        if (s_collisionMap && s_collisionMap->ready)
+        {
+            float ts = s_collisionMap->tileSize;
+            return {
+                s_collisionMap->origin.x + idx.x * ts + ts * 0.5f,
+                s_collisionMap->origin.y + idx.y * ts + ts * 0.5f
+            };
+        }
+        return { idx.x * TILE_SIZE + TILE_SIZE * 0.5f,
+                 idx.y * TILE_SIZE + TILE_SIZE * 0.5f };
+    }
+
+    Index AdjacentIndex(Index idx, FaceDirection dir)
+    {
+        switch (dir)
+        {
+        case FaceDirection::LEFT:  return { idx.x - 1, idx.y };
+        case FaceDirection::RIGHT: return { idx.x + 1, idx.y };
+        case FaceDirection::UP:    return { idx.x, idx.y + 1 };
+        case FaceDirection::DOWN:  return { idx.x, idx.y - 1 };
+        default:                   return idx;
+        }
+    }
+
+    bool IsTilePassable(Index idx)
+    {
+        if (!s_collisionMap || !s_collisionMap->ready) return false;
+
+        if (idx.x < 0 || idx.y < 0) return false;
+        if (idx.x >= s_collisionMap->width || idx.y >= s_collisionMap->height) return false;
+
+        size_t flat = idx.y * s_collisionMap->width + idx.x;
+
+        if (s_collisionMap->solid[flat])
+            return false;
+
+        if (IsEntityBlocking(idx))
+            return false;
+
+        return true;
+    }
+
+    bool IsEntityBlocking(Index idx)
+    {
+        for (int i = 0; i < MAX_ENTITIES; i++)
+        {
+            EntityBase* e = entities[i];
+            if (!e || !e->IsActive()) continue;
+
+            if (e->GetType() == EntityType::PROP)
+            {
+                if (e->GetCurrentIndex().x == idx.x &&
+                    e->GetCurrentIndex().y == idx.y)
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    bool IsEntityBlockingDynamic(Index idx, const EntityBase* self)
+    {
+        for (int i = 0; i < MAX_ENTITIES; i++)
+        {
+            EntityBase* e = entities[i];
+            if (!e || !e->IsActive() || e == self) continue;
+
+            // Check if they are currently occupying the grid or actively transitioning to it
+            if (e->GetCurrentIndex().x == idx.x && e->GetCurrentIndex().y == idx.y) return true;
+            if (e->GetNextIndex().x == idx.x && e->GetNextIndex().y == idx.y) return true;
+        }
+        return false;
+    }
+
+    AEGfxVertexList* pathLineMesh = nullptr;
+    const bool SHOW_PATH_DEBUG = true;
+
+    void drawDebugLine(AEGfxVertexList* mesh, const AEVec2& from, const AEVec2& to, float thickness, float r, float g, float b)
+    {
+        if (!mesh) return;
+
+        float dx = to.x - from.x;
+        float dy = to.y - from.y;
+        float length = std::sqrt(dx * dx + dy * dy);
+        if (length < 1e-4f) return;
+
+        float angle = std::atan2(dy, dx);
+        float midX = 0.5f * (from.x + to.x);
+        float midY = 0.5f * (from.y + to.y);
+
+        AEMtx33 s = { 0 }, rot = { 0 }, t = { 0 }, tmp = { 0 }, m = { 0 };
+        AEMtx33Scale(&s, length, thickness);
+        AEMtx33Rot(&rot, angle);
+        AEMtx33Trans(&t, midX, midY);
+        AEMtx33Concat(&tmp, &rot, &s);
+        AEMtx33Concat(&m, &t, &tmp);
+        AEGfxSetTransform(m.m);
+
+        AEGfxSetRenderMode(AE_GFX_RM_COLOR);
+        AEGfxSetColorToMultiply(r, g, b, 1.0f);
+        AEGfxSetBlendMode(AE_GFX_BM_BLEND);
+        AEGfxMeshDraw(mesh, AE_GFX_MDM_TRIANGLES);
     }
 
     //============================================================================
@@ -796,6 +883,7 @@ namespace Entity
     void Load(const Collision::Map* map)
     {
         SetCollisionMap(map);
+        pathLineMesh = BasicUtilities::createSquareMesh(1.0f, 1.0f, 0x88FFFFFF);
         PS::Load();
     }
 
@@ -816,6 +904,31 @@ namespace Entity
     void Draw()
     {
         RenderQueue();
+
+        if (SHOW_PATH_DEBUG && pathLineMesh)
+        {
+            for (int i = 0; i < MAX_ENTITIES; ++i)
+            {
+                EntityBase* e = entities[i];
+                if (!e || !e->IsActive() || e->IsPathEmpty()) continue;
+
+                // Color lines differ by AI / Player
+                float r = e->IsAI() ? 1.0f : 1.0f;
+                float g = e->IsAI() ? 0.3f : 1.0f;
+                float b = e->IsAI() ? 0.3f : 0.0f;
+
+                const auto& path = e->GetPath();
+                AEVec2 prev = e->GetCoordinates();
+
+                for (int j = static_cast<int>(path.size()) - 1; j >= 0; --j)
+                {
+                    const Node& n = path[static_cast<size_t>(j)];
+                    AEVec2 center = IndexToWorld(n.index);
+                    drawDebugLine(pathLineMesh, prev, center, 6.0f, r, g, b);
+                    prev = center;
+                }
+            }
+        }
     }
 
     void Free()
@@ -829,5 +942,10 @@ namespace Entity
         PS::Unload();
         ClearEntities();
         renderCount = 0;
+        if (pathLineMesh)
+        {
+            AEGfxMeshFree(pathLineMesh);
+            pathLineMesh = nullptr;
+        }
     }
 } // namespace Entity

@@ -68,24 +68,6 @@ namespace Entity
 	};
 
 	/**
-	 * @brief Selects which sprite draw function the render queue uses for this entity.
-	 *
-	 * @details Each value maps to a different Sprite utility function:
-	 *   - NONE        — Entity is not drawn by the generic render queue.
-	 *                    Use this for entities with custom draw code (e.g. player).
-	 *   - STATIC      — Single full-texture quad via Sprite::DrawSprite.
-	 *   - ANIM_GRID   — Grid-based spritesheet via Sprite::UpdateAnimation(row, cols) + DrawAnimation.
-	 *   - ANIM_JSON   — Aseprite JSON spritesheet via Sprite::UpdateAnimation(JMeta, tag) + DrawAnimation.
-	 */
-	 //enum class DrawMode
-	 //{
-	 //	NONE,			///< Not drawn by render queue (sub-system handles its own draw)
-	 //	STATIC,			///< Static single-texture sprite (DrawSprite)
-	 //	ANIM_GRID,		///< Grid-based spritesheet animation (UpdateAnimation row/cols overload)
-	 //	ANIM_JSON		///< Aseprite JSON-driven animation (UpdateAnimation JMeta overload)
-	 //};
-
-	/**
 	 * @brief Integer grid index for pathfinding and tile-based logic.
 	 */
 	struct Index
@@ -181,17 +163,18 @@ namespace Entity
 		FaceDirection      lastDirection{ FaceDirection::DOWN };	///< Last facing direction (default down)
 		MoveState          moveState{ MoveState::DEFAULT };			///< Current movement state
 
+		// AI tracking
+		float              waitTimer{ 0.0f };               ///< Timer for blocked AI wait/repath logic
+		Index              finalGoal{ -1, -1 };             ///< Reserved end goal for AI pathing
+		bool               hasFinalGoal{ false };           ///< If a path target has been set
+
 		// Misc flags
 		bool			   active{ true };					///< Whether the entity is active (can be used for soft deletion)
 		bool 			   isAI{ false };					///< Whether the entity is AI-controlled
 		bool               holding{ false };                ///< Whether entity holds an item (TO BE REMOVED)
 
 		// Rendering
-		//AEGfxVertexList*   mesh{ nullptr };				///< Mesh pointer for rendering
-		//AEGfxTexture*      texture{ nullptr };			///< Primary texture pointer
-		//AEVec2             drawScale{ 64.0f, 64.0f };		///< Sprite draw size in world units (width, height)
-		//DrawMode           drawMode{ DrawMode::NONE };	///< Which sprite draw function to use
-
+		//AEGfxVertexList*   mesh{ nullptr };				///< Mesh pointer for rendering (commented out — enable when render queue is ready)
 
 		// ------------------------------------------------------------------
 		//                    Private path helpers
@@ -351,10 +334,40 @@ namespace Entity
 		*/
 		bool IsIndexSame() const;
 
-		//AEGfxVertexList* GetMesh() const;
-		//AEGfxTexture* GetTexture() const;
-		//AEVec2 GetDrawScale() const;
-		//DrawMode GetDrawMode() const;
+		// AI GETTERS / SETTERS
+
+		/**
+		* @brief Sets the final goal index for AI pathfinding.
+		 * @param[in] idx Grid index representing the final destination for pathfinding.
+		 * @details This is used by AI to remember their ultimate target, even if they need to temporarily deviate or wait.
+		 *          Setting this does not automatically compute a path — call ComputePath() after setting a new goal.
+		*/
+		void SetFinalGoal(Index idx);
+
+		/**
+		* @brief Gets the final goal index for AI pathfinding.
+		*/
+		Index GetFinalGoal() const;
+
+		/**
+		* @brief Checks if a final goal has been set for AI pathfinding.
+		 * @return true if a final goal index has been set, false otherwise.
+		 * @details This can be used by AI logic to determine whether the entity is currently pursuing a target or just wandering.
+		*/
+		bool HasFinalGoal() const;
+
+		/**
+		* @brief Clears the final goal index for AI pathfinding and resets the hasFinalGoal flag.
+		 * @post After calling this, HasFinalGoal() will return false and GetFinalGoal() will return an invalid index (-1, -1).
+		 * @details Use this when an AI reaches its target or needs to abandon its current goal for any reason.
+		 *          This does not automatically clear the current path or next index — call ClearPath() if you also want to reset those.
+		*/
+		void ClearFinalGoal();
+
+		/**
+		* @brief Reference to the AI wait timer.
+		*/
+		float& RefWaitTimer();
 
 		// ------------------------------------------------------------------
 		//                     Reference Getters (For AI)
@@ -488,11 +501,6 @@ namespace Entity
 		 * @param[in] ai True when controlled by AI, false for player control.
 		 */
 		void SetAI(bool ai);
-
-		//void SetMesh(AEGfxVertexList* m);
-		//void SetTexture(AEGfxTexture* tex);
-		//void SetDrawScale(AEVec2 scale);
-		//void SetDrawMode(DrawMode mode);
 
 		// =========================================================================
 		//                  Update functions (position, index, etc.)

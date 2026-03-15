@@ -41,12 +41,6 @@ static constexpr float WALK_MULTIPLIER = 1.0f;
 float movementMultiplier = 1.0f;
 
 // =============================================================================
-//                           Debug meshes
-// =============================================================================
-
-AEGfxVertexList* pathLineMesh = nullptr;
-
-// =============================================================================
 //                  Anonymous namespace: helper declarations
 // =============================================================================
 namespace
@@ -93,11 +87,6 @@ namespace PlayerSystem
         Sprite::LoadEntry4("MC", mcSprite);
 
         if (debug) std::cout << "[DEBUG] playerSpriteData.count = " << mcSprite.count << "\n";
-
-        if (debug)
-        {
-            pathLineMesh = BasicUtilities::createSquareMesh(1.0f, 1.0f, 0x88FFFF00);
-        }
     }
 
     //==========================================================================
@@ -286,7 +275,7 @@ namespace PlayerSystem
         // Follow A* path
         if (!p1->IsPathEmpty())
         {
-            p1->FollowPath(dt);
+            p1->FollowPath();
         }
 
         // Smooth interpolation for WASD tile movement
@@ -357,20 +346,6 @@ namespace PlayerSystem
                               animState,
                               p1->GetCoordinates(),
                               { playerScaleX, playerScaleX });
-
-        if (debug && pathLineMesh && !p1->IsPathEmpty())
-        {
-            const auto& path = p1->GetPath();
-            AEVec2 prev = p1->GetCoordinates();
-
-            for (int i = static_cast<int>(path.size()) - 1; i >= 0; --i)
-            {
-                const Entity::Node& n = path[static_cast<size_t>(i)];
-                AEVec2 center = Entity::IndexToWorld(n.index);
-                drawDebugLine(pathLineMesh, prev, center, 6.0f);
-                prev = center;
-            }
-        }
     }
 
     //==========================================================================
@@ -384,12 +359,6 @@ namespace PlayerSystem
         {
             AEGfxMeshFree(spriteMesh);
             spriteMesh = nullptr;
-        }
-
-        if (debug && pathLineMesh)
-        {
-            AEGfxMeshFree(pathLineMesh);
-            pathLineMesh = nullptr;
         }
 
         currentTexSlot  = 0;

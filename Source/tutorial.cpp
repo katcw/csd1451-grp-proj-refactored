@@ -262,7 +262,7 @@ namespace
             }
         }
         else if (currentTask == TASK_SELLING && customerState.active)
-            target = &customerState.customer.RefCoordinates();   // tracks the customer as they move
+            target = &customerState.customer->RefCoordinates();   // tracks the customer as they move
         // TASK_RETRY intentionally has no pointer
 
         if (!target) return;
@@ -466,7 +466,7 @@ void Tutorial_Update()
             constexpr float ANIM_SPEED = 6.f;
             BasicUtilities::tickEase(customerTooltipT,
                 customerState.active &&
-                customerState.customer.state == CustomerState::WAITING,
+                customerState.customer->state == CustomerState::WAITING,
                 dt, ANIM_SPEED);
 
             //------------------------------------------------------------------
@@ -512,9 +512,9 @@ void Tutorial_Update()
                             (!topOnly || cy >= chests[i].pos.y - PROP_BOTTOM_ALLOW))
                             return true;
                     if (customerState.active)
-                        if (fabsf(cx - customerState.customer.GetCoordinates().x) < PW + PROP_HW &&
-                            fabsf(cy - customerState.customer.GetCoordinates().y) < PH + PROP_HH &&
-                            (!topOnly || cy >= customerState.customer.GetCoordinates().y - PROP_BOTTOM_ALLOW))
+                        if (fabsf(cx - customerState.customer->GetCoordinates().x) < PW + PROP_HW &&
+                            fabsf(cy - customerState.customer->GetCoordinates().y) < PH + PROP_HH &&
+                            (!topOnly || cy >= customerState.customer->GetCoordinates().y - PROP_BOTTOM_ALLOW))
                             return true;
                     return false;
                 };
@@ -665,8 +665,8 @@ void Tutorial_Update()
                 AEInputCheckTriggered(AEVK_E) &&
                 PlayerSystem::p1->held.type == HeldItem::FLOWER)
             {
-                float dx = customerState.customer.GetCoordinates().x - PlayerSystem::p1->GetCoordinates().x;
-                float dy = customerState.customer.GetCoordinates().y - PlayerSystem::p1->GetCoordinates().y;
+                float dx = customerState.customer->GetCoordinates().x - PlayerSystem::p1->GetCoordinates().x;
+                float dy = customerState.customer->GetCoordinates().y - PlayerSystem::p1->GetCoordinates().y;
                 if (std::sqrt(dx * dx + dy * dy) < plantSystem::INTERACT_RADIUS)
                 {
                     CustomerSystem::CustomerSystem_Serve(customerState);
@@ -705,7 +705,7 @@ void Tutorial_Update()
             CustomerSystem::CustomerSystem_Update(customerState, dt);
 
             // Patience-ran-out detection (one-shot: guard becomes false after task changes)
-            if (customerState.customer.patienceRanOut &&
+            if (customerState.customer->patienceRanOut &&
                 (currentTask == TASK_HARVEST || currentTask == TASK_SELLING))
             {
                 Gold::ApplyPenalty(GOLD_PENALTY_IMPATIENT);
@@ -921,7 +921,7 @@ void Tutorial_Draw()
                     Debug::CHEST_R, Debug::CHEST_G, Debug::CHEST_B);
             // Customer AABB
             if (customerState.active)
-                drawAABB(customerState.customer.GetCoordinates().x, customerState.customer.GetCoordinates().y,
+                drawAABB(customerState.customer->GetCoordinates().x, customerState.customer->GetCoordinates().y,
                          PROP_COLL_HW, PROP_COLL_HH,
                          Debug::CUSTOMER_R, Debug::CUSTOMER_G, Debug::CUSTOMER_B);
 

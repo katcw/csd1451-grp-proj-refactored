@@ -534,7 +534,7 @@ void Level1_Update()
                 const auto& sl = customerPool.slots[ci];
                 BasicUtilities::tickEase(
                     customerTooltipT[ci],
-                    sl.active && sl.customer.state == CustomerState::WAITING,
+                    sl.active && sl.customer->state == CustomerState::WAITING,
                     dt,
                     ANIM_SPEED);
             }
@@ -576,10 +576,10 @@ void Level1_Update()
                         for (int ci = 0; ci < CustomerSystem::POOL_MAX; ++ci)
                         {
                             const auto& sl = customerPool.slots[ci];
-                            if (!sl.active || sl.customer.state != CustomerState::WAITING) continue;
-                            if (fabsf(cx - sl.customer.GetCoordinates().x) < PW + PROP_HW &&
-                                fabsf(cy - sl.customer.GetCoordinates().y) < PH + PROP_HH &&
-                                (!topOnly || cy >= sl.customer.GetCoordinates().y - PROP_BOTTOM_ALLOW))
+                            if (!sl.active || sl.customer->state != CustomerState::WAITING) continue;
+                            if (fabsf(cx - sl.customer->GetCoordinates().x) < PW + PROP_HW &&
+                                fabsf(cy - sl.customer->GetCoordinates().y) < PH + PROP_HH &&
+                                (!topOnly || cy >= sl.customer->GetCoordinates().y - PROP_BOTTOM_ALLOW))
                                 return true;
                         }
                         return false;
@@ -686,16 +686,15 @@ void Level1_Draw()
         CustomerSystem::CustomerPool_Draw(customerPool, fontId);
         BasicUtilities::drawUICard(squareMesh, dustbinTex,
             dustbinPos.x, dustbinPos.y, 64.f, 64.f);
-        Entity::Draw();
 
         if (PlayerSystem::p1->GetLastDirection() == Entity::FaceDirection::UP)
         {
             ParticleSystem::Draw(particleState);
-            PlayerSystem::Draw();
+            Entity::Draw();
         }
         else
         {
-            PlayerSystem::Draw();
+            Entity::Draw();
             ParticleSystem::Draw(particleState);
         }
 
